@@ -127,12 +127,13 @@
       </div>
       <label>Millainen arkesi on? (työn fyysisyys, istumista vai jaloillaan oloa, lapsia sylissä…)</label>
       <textarea name="arki"></textarea>
-      <label>Kuinka aktiiviseksi koet itsesi?</label>
+      <label>Kuinka aktiiviseksi koet itsesi arjessa?</label>
       <div class="chips">
-        <label><input type="radio" name="aktiivisuus" value="En juuri lainkaan">En juuri lainkaan</label>
-        <label><input type="radio" name="aktiivisuus" value="Satunnaisesti">Satunnaisesti</label>
-        <label><input type="radio" name="aktiivisuus" value="Jokseenkin aktiivinen">Jokseenkin</label>
-        <label><input type="radio" name="aktiivisuus" value="Erittäin aktiivinen">Erittäin</label>
+        <label><input type="radio" name="aktiivisuus" value="1">1 · en juuri liiku</label>
+        <label><input type="radio" name="aktiivisuus" value="2">2</label>
+        <label><input type="radio" name="aktiivisuus" value="3">3</label>
+        <label><input type="radio" name="aktiivisuus" value="4">4</label>
+        <label><input type="radio" name="aktiivisuus" value="5">5 · erittäin aktiivinen</label>
       </div>
     </fieldset>
 
@@ -155,9 +156,41 @@
       <input type="text" name="lihasryhmat">
       <label>Toive treenikerroista viikossa</label>
       <input type="text" name="treenikerrat" style="width:110px">
-      <label>Lempiliikkeet salilla</label>
+      <label>Lempiliikkeet salilla (valitse kaikki mieluisat)</label>
+      <div class="chips">
+        <label><input type="checkbox" name="lempi" value="Kyykky">Kyykky</label>
+        <label><input type="checkbox" name="lempi" value="Maastaveto">Maastaveto</label>
+        <label><input type="checkbox" name="lempi" value="Askelkyykky">Askelkyykky</label>
+        <label><input type="checkbox" name="lempi" value="Jalkaprässi">Jalkaprässi</label>
+        <label><input type="checkbox" name="lempi" value="Lantionnosto">Lantionnosto</label>
+        <label><input type="checkbox" name="lempi" value="Penkkipunnerrus">Penkkipunnerrus</label>
+        <label><input type="checkbox" name="lempi" value="Pystypunnerrus">Pystypunnerrus</label>
+        <label><input type="checkbox" name="lempi" value="Soutuliikkeet">Soutuliikkeet</label>
+        <label><input type="checkbox" name="lempi" value="Ylätalja/leuanveto">Ylätalja/leuanveto</label>
+        <label><input type="checkbox" name="lempi" value="Käsiliikkeet">Käsiliikkeet</label>
+        <label><input type="checkbox" name="lempi" value="Vatsaliikkeet">Vatsaliikkeet</label>
+        <label><input type="checkbox" name="lempi" value="Kävely/cardio">Kävely/cardio</label>
+        <label><input type="checkbox" name="lempi" value="En osaa vielä sanoa">En osaa vielä sanoa</label>
+      </div>
+      <label>Muita lempiliikkeitä omin sanoin</label>
       <input type="text" name="lempiliikkeet">
-      <label>Liikkeet, joista et pidä</label>
+      <label>Liikkeet, joista et pidä (valitse kaikki)</label>
+      <div class="chips">
+        <label><input type="checkbox" name="inhokki" value="Kyykky">Kyykky</label>
+        <label><input type="checkbox" name="inhokki" value="Maastaveto">Maastaveto</label>
+        <label><input type="checkbox" name="inhokki" value="Askelkyykky">Askelkyykky</label>
+        <label><input type="checkbox" name="inhokki" value="Jalkaprässi">Jalkaprässi</label>
+        <label><input type="checkbox" name="inhokki" value="Lantionnosto">Lantionnosto</label>
+        <label><input type="checkbox" name="inhokki" value="Penkkipunnerrus">Penkkipunnerrus</label>
+        <label><input type="checkbox" name="inhokki" value="Pystypunnerrus">Pystypunnerrus</label>
+        <label><input type="checkbox" name="inhokki" value="Soutuliikkeet">Soutuliikkeet</label>
+        <label><input type="checkbox" name="inhokki" value="Ylätalja/leuanveto">Ylätalja/leuanveto</label>
+        <label><input type="checkbox" name="inhokki" value="Käsiliikkeet">Käsiliikkeet</label>
+        <label><input type="checkbox" name="inhokki" value="Vatsaliikkeet">Vatsaliikkeet</label>
+        <label><input type="checkbox" name="inhokki" value="Kävely/cardio">Kävely/cardio</label>
+        <label><input type="checkbox" name="inhokki" value="En osaa vielä sanoa">En osaa vielä sanoa</label>
+      </div>
+      <label>Muita omin sanoin</label>
       <input type="text" name="inhokit">
       <label>Mikä on tällä hetkellä suurin este tavoitteidesi tiellä?</label>
       <textarea name="este"></textarea>
@@ -222,15 +255,15 @@ function koosta(){
   t += rivi('Lajit', val('lajit'));
   t += rivi('Salikokemus (1–5)', radio('kokemus'));
   t += rivi('Arki', val('arki'));
-  t += rivi('Koettu aktiivisuus', radio('aktiivisuus'));
+  t += rivi('Koettu aktiivisuus (1–5)', radio('aktiivisuus'));
   t += '\nTAVOITTEET\n';
   t += rivi('Miksi valmennukseen', val('miksi'));
   t += rivi('Tavoitteet', checks('tavoite'));
   t += rivi('Muu tavoite', val('tavoitemuu'));
   t += rivi('Painopistelihasryhmät', val('lihasryhmat'));
   t += rivi('Toive treenikerroista/vko', val('treenikerrat'));
-  t += rivi('Lempiliikkeet', val('lempiliikkeet'));
-  t += rivi('Inhokkiliikkeet', val('inhokit'));
+  t += rivi('Lempiliikkeet', [checks('lempi'), val('lempiliikkeet')].filter(Boolean).join(', '));
+  t += rivi('Inhokkiliikkeet', [checks('inhokki'), val('inhokit')].filter(Boolean).join(', '));
   t += rivi('Suurin este', val('este'));
   t += rivi('Vahvuudet', val('vahvuudet'));
   t += '\nARKI JA PALAUTUMINEN\n';
