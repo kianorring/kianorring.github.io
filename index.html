@@ -688,6 +688,11 @@ function renderHome(){
     +'<a class="btn-ghost" href="'+COACH.ig+'" target="_blank" rel="noopener">📸 Seuraa Instagramissa · @norringkia</a>'
     +'</div></div>';
 
+  if(state.ohjelma && state.ohjelma.ravinto){
+    html+='<div class="card"><h3 style="font-size:17px">🥗 Valmentajan ravinto-ohje sinulle</h3>'
+      +'<div class="muted" style="white-space:pre-wrap;margin-top:6px">'+esc(state.ohjelma.ravinto)+'</div></div>';
+  }
+
   html+='<div class="dayhead" style="margin-top:20px"><h2>Valmentajan ohjeet</h2></div>'
 
     +'<details class="guide card" style="margin:8px 0"><summary><b>💪 Treenaamisen periaatteet</b></summary><ul>'
