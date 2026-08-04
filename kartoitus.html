@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101318">
+<title>Alkukartoitus — Kia Norring Training</title>
+<style>
+  :root{
+    --bg:#101318; --surface:#191e26; --surface2:#222a36; --line:#2b3442;
+    --text:#e9ecf1; --muted:#8a94a6; --accent:#ffb454; --accent-ink:#241a08;
+    --teal:#4cc9c0;
+    --disp:"Avenir Next Condensed","Arial Narrow",-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  #wrap{max-width:640px;margin:0 auto;padding:26px 18px 70px}
+  .brandrow{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  .knlogo{font:700 21px var(--disp);color:var(--accent);border:2.5px solid var(--accent);
+    border-radius:9px;padding:4px 9px 3px}
+  .brand{font:700 12px var(--disp);text-transform:uppercase;letter-spacing:.3em;color:var(--accent)}
+  h1{font:700 clamp(30px,8vw,40px)/1.05 var(--disp);text-transform:uppercase;margin:0 0 6px}
+  .lead{color:var(--muted);font-size:15px;margin:0 0 6px}
+  .privacy{
+    background:rgba(76,201,192,.1);border:1px solid var(--teal);border-radius:12px;
+    padding:10px 14px;font-size:14px;color:var(--teal);margin:14px 0 22px;
+  }
+  fieldset{
+    border:1px solid var(--line);background:var(--surface);border-radius:14px;
+    padding:16px;margin:0 0 14px;
+  }
+  legend{
+    font:700 17px var(--disp);text-transform:uppercase;letter-spacing:.03em;
+    color:var(--accent);padding:0 8px;
+  }
+  label{display:block;font-size:14px;color:var(--muted);margin:12px 0 5px}
+  label:first-of-type{margin-top:2px}
+  input[type=text],input[type=email],input[type=tel],input[type=number],textarea,select{
+    width:100%;background:var(--surface2);border:1px solid var(--line);color:var(--text);
+    border-radius:9px;padding:11px 12px;font-size:16px;
+  }
+  textarea{min-height:74px;resize:vertical}
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--accent);border-color:var(--accent)}
+  .hint{font-size:12.5px;color:var(--muted);margin-top:4px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  .chips label{
+    margin:0;display:flex;align-items:center;gap:7px;color:var(--text);font-size:15px;
+    background:var(--surface2);border:1px solid var(--line);border-radius:999px;
+    padding:9px 14px;cursor:pointer;
+  }
+  .chips input{accent-color:var(--accent);width:17px;height:17px;margin:0}
+  .chips label:has(input:checked){border-color:var(--accent);background:rgba(255,180,84,.12)}
+  .row{display:flex;gap:10px}
+  .row>div{flex:1}
+  .consent{
+    display:flex;gap:10px;align-items:flex-start;background:var(--surface);
+    border:1px solid var(--line);border-radius:14px;padding:14px;margin:6px 0 18px;
+    font-size:14px;color:var(--muted);
+  }
+  .consent input{accent-color:var(--accent);width:20px;height:20px;flex:none;margin-top:1px}
+  button{
+    display:block;width:100%;border:0;border-radius:11px;padding:15px;cursor:pointer;
+    font:700 17px var(--disp);text-transform:uppercase;letter-spacing:.05em;
+  }
+  #send{background:var(--accent);color:var(--accent-ink);margin-bottom:10px}
+  #copy,#gmail{background:var(--surface2);color:var(--text);border:1px solid var(--line);
+    font-size:14px;text-transform:none;letter-spacing:0;font-family:-apple-system,sans-serif;font-weight:600}
+  #gmail{margin-bottom:10px}
+  #msg{margin:12px 0 0;font-size:14px;color:var(--teal);min-height:20px;text-align:center}
+  .req{color:var(--accent)}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div class="brandrow"><span class="knlogo">KN</span><span class="brand">Kia Norring Training</span></div>
+  <h1>Alkukartoitus</h1>
+  <p class="lead">Tervetuloa valmennukseen! Vastaustesi pohjalta Kia suunnittelee sinulle sopivan ohjelman. Täyttäminen vie noin 5 minuuttia.</p>
+  <div class="privacy">🔒 Tämä sivu ei tallenna tietojasi mihinkään. Kun painat lopuksi Lähetä, vastaukset siirtyvät sinun sähköpostiisi valmiiksi viestiksi — sinä päätät lähettämisestä.</div>
+
+  <form id="f" novalidate>
+    <fieldset>
+      <legend>Yhteystiedot</legend>
+      <label>Nimi <span class="req">*</span></label>
+      <input type="text" name="nimi" autocomplete="name" required>
+      <label>Puhelin</label>
+      <input type="tel" name="puhelin" autocomplete="tel">
+      <label>Sähköposti</label>
+      <input type="email" name="sposti" autocomplete="email">
+      <label>Ikä</label>
+      <input type="number" name="ika" min="15" max="99" style="width:110px">
+    </fieldset>
+
+    <fieldset>
+      <legend>Ohjelman mitoitus</legend>
+      <p class="hint" style="margin:0 0 4px">Näitä tietoja Kia käyttää vain ohjelmasi mitoitukseen — lähtökuormien ja energiankulutuksen arviointiin. Valmennukseen ei kuulu punnituksia. Jokaisen kohdan voi jättää tyhjäksi ja kertoa halutessaan puhelussa — valmennus toimii täysin samalla tavalla.</p>
+      <label>Sukupuoli</label>
+      <div class="chips">
+        <label><input type="radio" name="sukupuoli" value="Nainen">Nainen</label>
+        <label><input type="radio" name="sukupuoli" value="Mies">Mies</label>
+        <label><input type="radio" name="sukupuoli" value="Muu">Muu</label>
+        <label><input type="radio" name="sukupuoli" value="En halua kertoa">En halua kertoa</label>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Pituus (valinnainen)</label><input type="number" name="pituus" min="100" max="230" placeholder="cm"></div>
+        <div><label>Paino (valinnainen)</label><input type="number" name="paino" min="30" max="250" placeholder="kg"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Liikuntatausta</legend>
+      <label>Kuinka monta kertaa viikossa liikut nykyisin?</label>
+      <input type="text" name="liikuntakerrat" style="width:110px">
+      <label>Millaista liikuntaa harrastat?</label>
+      <input type="text" name="lajit">
+      <label>Kokemus kuntosaliharjoittelusta</label>
+      <div class="chips">
+        <label><input type="radio" name="kokemus" value="1">1 · aloittelija</label>
+        <label><input type="radio" name="kokemus" value="2">2</label>
+        <label><input type="radio" name="kokemus" value="3">3</label>
+        <label><input type="radio" name="kokemus" value="4">4</label>
+        <label><input type="radio" name="kokemus" value="5">5 · kokenut</label>
+      </div>
+      <label>Millainen arkesi on? (työn fyysisyys, istumista vai jaloillaan oloa, lapsia sylissä…)</label>
+      <textarea name="arki"></textarea>
+      <label>Kuinka aktiiviseksi koet itsesi?</label>
+      <div class="chips">
+        <label><input type="radio" name="aktiivisuus" value="En juuri lainkaan">En juuri lainkaan</label>
+        <label><input type="radio" name="aktiivisuus" value="Satunnaisesti">Satunnaisesti</label>
+        <label><input type="radio" name="aktiivisuus" value="Jokseenkin aktiivinen">Jokseenkin</label>
+        <label><input type="radio" name="aktiivisuus" value="Erittäin aktiivinen">Erittäin</label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Tavoitteet</legend>
+      <label>Miksi hakeuduit valmennukseen?</label>
+      <textarea name="miksi"></textarea>
+      <label>Mitä haluat saavuttaa? (valitse kaikki sopivat)</label>
+      <div class="chips">
+        <label><input type="checkbox" name="tavoite" value="Hyvinvoinnin parantaminen">Hyvinvointi</label>
+        <label><input type="checkbox" name="tavoite" value="Voimatasojen kasvu">Voima</label>
+        <label><input type="checkbox" name="tavoite" value="Jaksaminen arjessa">Jaksaminen</label>
+        <label><input type="checkbox" name="tavoite" value="Kunnon kohotus">Kunto</label>
+        <label><input type="checkbox" name="tavoite" value="Lihasmassan kasvu">Lihasmassa</label>
+        <label><input type="checkbox" name="tavoite" value="Liikunnan ilon löytäminen">Liikunnan ilo</label>
+      </div>
+      <label>Muu tavoite / tarkennus</label>
+      <input type="text" name="tavoitemuu">
+      <label>Onko lihasryhmiä, joihin haluat erityisesti keskittyä?</label>
+      <input type="text" name="lihasryhmat">
+      <label>Toive treenikerroista viikossa</label>
+      <input type="text" name="treenikerrat" style="width:110px">
+      <label>Lempiliikkeet salilla</label>
+      <input type="text" name="lempiliikkeet">
+      <label>Liikkeet, joista et pidä</label>
+      <input type="text" name="inhokit">
+      <label>Mikä on tällä hetkellä suurin este tavoitteidesi tiellä?</label>
+      <textarea name="este"></textarea>
+      <label>Mitkä vahvuutesi auttavat sinua onnistumaan?</label>
+      <textarea name="vahvuudet"></textarea>
+    </fieldset>
+
+    <fieldset>
+      <legend>Arki ja palautuminen</legend>
+      <label>Miten kuvailisit ruokailurytmiäsi? (ateriamäärä päivässä, säännöllisyys)</label>
+      <textarea name="ruokailu"></textarea>
+      <label>Miten nukut? (tuntimäärä, heräiletkö öisin)</label>
+      <textarea name="uni"></textarea>
+    </fieldset>
+
+    <fieldset>
+      <legend>Vapaa sana</legend>
+      <label>Onko jotain muuta, jonka haluat valmentajan tietävän ennen ohjelman laadintaa?</label>
+      <textarea name="vapaa"></textarea>
+    </fieldset>
+
+    <div class="consent">
+      <input type="checkbox" id="consent">
+      <span>Annan suostumukseni siihen, että valmentaja käsittelee tässä ja valmennuksen aikana kertomiani tietoja valmennuksen toteuttamiseksi. Voin peruuttaa suostumuksen milloin tahansa. <span class="req">*</span></span>
+    </div>
+
+    <button type="button" id="send">Lähetä vastaukset Kialle →</button>
+    <button type="button" id="gmail">Avaa Gmail selaimessa →</button>
+    <button type="button" id="copy">Tai kopioi vastaukset ja lähetä itse (esim. WhatsApp)</button>
+    <div id="msg" role="status"></div>
+  </form>
+</div>
+
+<script>
+'use strict';
+const COACH_EMAIL = 'kianorring04@gmail.com';
+
+function val(name){
+  const el = document.querySelector('[name="'+name+'"]');
+  return el ? el.value.trim() : '';
+}
+function radio(name){
+  const el = document.querySelector('[name="'+name+'"]:checked');
+  return el ? el.value : '';
+}
+function checks(name){
+  return [...document.querySelectorAll('[name="'+name+'"]:checked')].map(x=>x.value).join(', ');
+}
+function rivi(otsikko, arvo){ return arvo ? otsikko+': '+arvo+'\n' : ''; }
+
+function koosta(){
+  let t = 'ALKUKARTOITUS — Kia Norring Training\n\n';
+  t += 'YHTEYSTIEDOT\n';
+  t += rivi('Nimi', val('nimi'));
+  t += rivi('Puhelin', val('puhelin'));
+  t += rivi('Sähköposti', val('sposti'));
+  t += rivi('Ikä', val('ika'));
+  const mit = rivi('Sukupuoli', radio('sukupuoli')) + rivi('Pituus', val('pituus') && val('pituus')+' cm') + rivi('Paino', val('paino') && val('paino')+' kg');
+  if(mit) t += '\nOHJELMAN MITOITUS\n' + mit;
+  t += '\nLIIKUNTATAUSTA\n';
+  t += rivi('Liikuntakertoja viikossa', val('liikuntakerrat'));
+  t += rivi('Lajit', val('lajit'));
+  t += rivi('Salikokemus (1–5)', radio('kokemus'));
+  t += rivi('Arki', val('arki'));
+  t += rivi('Koettu aktiivisuus', radio('aktiivisuus'));
+  t += '\nTAVOITTEET\n';
+  t += rivi('Miksi valmennukseen', val('miksi'));
+  t += rivi('Tavoitteet', checks('tavoite'));
+  t += rivi('Muu tavoite', val('tavoitemuu'));
+  t += rivi('Painopistelihasryhmät', val('lihasryhmat'));
+  t += rivi('Toive treenikerroista/vko', val('treenikerrat'));
+  t += rivi('Lempiliikkeet', val('lempiliikkeet'));
+  t += rivi('Inhokkiliikkeet', val('inhokit'));
+  t += rivi('Suurin este', val('este'));
+  t += rivi('Vahvuudet', val('vahvuudet'));
+  t += '\nARKI JA PALAUTUMINEN\n';
+  t += rivi('Ruokailurytmi', val('ruokailu'));
+  t += rivi('Uni', val('uni'));
+  const vapaa = val('vapaa');
+  if(vapaa) t += '\nVAPAA SANA\n' + vapaa + '\n';
+  t += '\nSuostumus tietojen käsittelyyn valmennusta varten: KYLLÄ\n';
+  return t;
+}
+
+function tarkista(){
+  const msg = document.getElementById('msg');
+  if(!val('nimi')){ msg.textContent = 'Täytä ainakin nimesi.'; msg.style.color='var(--accent)'; return false; }
+  if(!document.getElementById('consent').checked){
+    msg.textContent = 'Ruksaa vielä suostumus — ilman sitä Kia ei voi käsitellä vastauksiasi.';
+    msg.style.color='var(--accent)'; return false;
+  }
+  msg.style.color='var(--teal)';
+  return true;
+}
+
+document.getElementById('send').addEventListener('click', () => {
+  if(!tarkista()) return;
+  const body = koosta();
+  const url = 'mailto:' + COACH_EMAIL
+    + '?subject=' + encodeURIComponent('Alkukartoitus — ' + val('nimi'))
+    + '&body=' + encodeURIComponent(body);
+  window.location.href = url;
+  document.getElementById('msg').textContent =
+    'Sähköpostisovellus avautuu — paina siellä vielä Lähetä. Jos mitään ei tapahtunut, kokeile Gmail-nappia tai kopiointia alta.';
+});
+
+document.getElementById('gmail').addEventListener('click', () => {
+  if(!tarkista()) return;
+  const body = koosta();
+  const url = 'https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(COACH_EMAIL)
+    + '&su=' + encodeURIComponent('Alkukartoitus — ' + val('nimi'))
+    + '&body=' + encodeURIComponent(body);
+  window.open(url, '_blank');
+  document.getElementById('msg').textContent = 'Gmail avautuu uuteen välilehteen — paina siellä vielä Lähetä.';
+});
+
+document.getElementById('copy').addEventListener('click', async () => {
+  if(!tarkista()) return;
+  const body = koosta();
+  try{
+    await navigator.clipboard.writeText(body);
+    document.getElementById('msg').textContent = 'Vastaukset kopioitu ✓ — liitä ne WhatsApp- tai sähköpostiviestiin Kialle.';
+  }catch(e){
+    const ta = document.createElement('textarea');
+    ta.value = body; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); ta.remove();
+    document.getElementById('msg').textContent = 'Vastaukset kopioitu ✓ — liitä ne viestiin Kialle.';
+  }
+});
+</script>
+</body>
+</html>
