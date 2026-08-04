@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101318">
+<title>Ohjelmaeditori — Kia Norring Training</title>
+<style>
+  :root{
+    --bg:#101318; --surface:#191e26; --surface2:#222a36; --line:#2b3442;
+    --text:#e9ecf1; --muted:#8a94a6; --accent:#ffb454; --accent-ink:#241a08;
+    --teal:#4cc9c0;
+    --disp:"Avenir Next Condensed","Arial Narrow",-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  }
+  #wrap{max-width:860px;margin:0 auto;padding:24px 16px 80px}
+  .brandrow{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .knlogo{font:700 20px var(--disp);color:var(--accent);border:2.5px solid var(--accent);
+    border-radius:9px;padding:4px 9px 3px}
+  .brand{font:700 12px var(--disp);text-transform:uppercase;letter-spacing:.3em;color:var(--accent)}
+  h1{font:700 34px var(--disp);text-transform:uppercase;margin:0 0 4px}
+  .lead{color:var(--muted);font-size:14px;margin:0 0 18px}
+  fieldset{border:1px solid var(--line);background:var(--surface);border-radius:14px;
+    padding:14px;margin:0 0 12px}
+  legend{font:700 17px var(--disp);text-transform:uppercase;letter-spacing:.03em;
+    color:var(--accent);padding:0 8px}
+  label{display:block;font-size:12.5px;color:var(--muted);margin:8px 0 3px}
+  input,select,textarea{
+    background:var(--surface2);border:1px solid var(--line);color:var(--text);
+    border-radius:8px;padding:8px 10px;font-size:14px;width:100%;
+  }
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);border-color:var(--accent)}
+  .meta{display:grid;grid-template-columns:2fr 1fr;gap:10px}
+  .dayhead{display:grid;grid-template-columns:1.2fr 1.6fr 1fr;gap:10px}
+  .liike{
+    border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;
+    padding:10px;margin:10px 0;background:var(--surface2);
+  }
+  .liike .rivi1{display:grid;grid-template-columns:2fr 70px 70px 70px 1.2fr;gap:8px}
+  .liike .rivi2{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px}
+  .poista{background:none;border:1px solid var(--line);color:var(--muted);border-radius:7px;
+    padding:4px 10px;font-size:12px;cursor:pointer;margin-top:8px}
+  .lisaa{background:none;border:1px dashed var(--accent);color:var(--accent);border-radius:8px;
+    padding:8px 14px;font-size:13px;cursor:pointer;margin-top:6px}
+  .toiminnot{position:sticky;bottom:0;background:rgba(16,19,24,.95);backdrop-filter:blur(8px);
+    border-top:1px solid var(--line);padding:12px 0;display:flex;gap:10px;flex-wrap:wrap}
+  .btn{border:0;border-radius:10px;padding:12px 18px;cursor:pointer;
+    font:700 15px var(--disp);text-transform:uppercase;letter-spacing:.04em}
+  .btn.paa{background:var(--accent);color:var(--accent-ink)}
+  .btn.sivu{background:var(--surface2);color:var(--text);border:1px solid var(--line)}
+  #tulos{display:none;margin-top:14px}
+  #tulos textarea{font:12px ui-monospace,Menlo,monospace;min-height:90px;word-break:break-all}
+  #viesti{color:var(--teal);font-size:14px;min-height:20px;margin-top:8px}
+  .ohje{background:rgba(76,201,192,.1);border:1px solid var(--teal);border-radius:12px;
+    padding:10px 14px;font-size:13px;color:var(--teal);margin:0 0 16px}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div class="brandrow"><span class="knlogo">KN</span><span class="brand">Kia Norring Training</span></div>
+  <h1>Ohjelmaeditori</h1>
+  <p class="lead">Valmentajan työkalu: rakenna asiakkaalle viikko-ohjelma ja lähetä se yhdellä linkillä. Työsi tallentuu automaattisesti tähän selaimeen.</p>
+  <div class="ohje">💡 Aloita "Esitäytä perusohjelmalla" -napista ja muokkaa sitä asiakkaan alkukartoituksen mukaan — se on nopeampaa kuin tyhjästä aloittaminen. Liikekentissä on valmiit ehdotukset: ala kirjoittaa, niin lista aukeaa.</div>
+
+  <fieldset>
+    <legend>Ohjelman tiedot</legend>
+    <div class="meta">
+      <div><label>Ohjelman nimi (esim. "Maijan ohjelma")</label><input id="onimi" placeholder="Asiakkaan ohjelma"></div>
+      <div><label>Laatija</label><input id="olaatija" value="Kia Norring"></div>
+    </div>
+  </fieldset>
+
+  <div id="paivat"></div>
+
+  <div class="toiminnot">
+    <button class="btn sivu" id="esitayta">Esitäytä perusohjelmalla</button>
+    <button class="btn paa" id="luolinkki">Luo asennuslinkki →</button>
+    <button class="btn sivu" id="lataa">Lataa JSON</button>
+  </div>
+  <div id="tulos">
+    <label>Asennuslinkki — lähetä tämä asiakkaalle (WhatsApp/sähköposti). Linkin avaus asentaa ohjelman.</label>
+    <textarea id="linkki" readonly></textarea>
+    <button class="btn sivu" id="kopioi" style="margin-top:8px">Kopioi linkki</button>
+  </div>
+  <div id="viesti" role="status"></div>
+</div>
+
+<datalist id="liikepankki">
+  <option>Takakyykky</option><option>Etukyykky</option><option>Goblet-kyykky</option>
+  <option>Maastaveto</option><option>Romanialainen maastaveto (RDL)</option><option>Trap bar -maastaveto</option>
+  <option>Askelkyykkykävely</option><option>Bulgarialainen askelkyykky</option><option>Askelkyykky paikallaan</option>
+  <option>Jalkaprässi</option><option>Hack-kyykky</option><option>Loitonnuslaite</option>
+  <option>Lantionnosto (hip thrust)</option><option>Selän ojennus (laite)</option>
+  <option>Penkkipunnerrus</option><option>Vinopenkki</option><option>Vinopenkki käsipainoilla</option>
+  <option>Pystypunnerrus</option><option>Käsipainopunnerrus istuen</option><option>Arnold-punnerrus</option>
+  <option>Ylätalja</option><option>Leuanveto (avustettu)</option><option>Alatalja</option>
+  <option>T-Bar-soutu</option><option>Kulmasoutu tangolla</option><option>Konesoutu</option>
+  <option>Hauiskääntö käsipainoilla</option><option>Hauiskääntö tangolla</option><option>Hammer curl</option>
+  <option>Ojentajapunnerrus taljassa</option><option>Ranskalainen punnerrus</option><option>Dippi penkiltä</option>
+  <option>Vipunostot sivulle</option><option>Vipunostot taljassa</option><option>Pystysoutu</option>
+  <option>Lankku</option><option>Roikkumisvatsat</option><option>Vatsarutistus taljassa</option>
+</datalist>
+
+<script>
+'use strict';
+const POHJA = {"ma":{"title":"Alakroppa","sub":"Viikon raskain salitreeni","type":"gym","ex":[{"id":"mave","name":"Maastaveto","sets":3,"min":6,"max":8,"inc":5,"tip":"Voimaliike — tee isolla kuormalla. Kun toistot lähenevät kahdeksaa, lisää painoa. Selkä suorana, tanko lähellä sääriä.","alts":[{"name":"Romanialainen maastaveto (RDL)","tip":"Pienempi polvikulma, venytys takareisiin. Hidas alasmeno, selkä suorana."},{"name":"Trap bar -maastaveto","tip":"Neutraali ote, pystympi asento. Sama voima-ajatus: raskas kuorma, siisti tekniikka."}]},{"id":"prassi","name":"Jalkaprässi","sets":3,"min":8,"max":10,"inc":5,"tip":"Hidas eksentrinen vaihe (alasmeno). Älä tuo kelkkaa ihan ylös asti — polvet eivät saa lukittua.","alts":[{"name":"Hack-kyykky","tip":"Selkä kiinni penkissä, hidas alasmeno. Älä lukitse polvia ylhäällä."},{"name":"Goblet-kyykky","tip":"Käsipaino rinnalla, kyynärpäät polvien sisäpuolelle alhaalla. Hidas alasmeno."}]},{"id":"askel","name":"Askelkyykkykävely","sets":2,"min":0,"max":0,"maxSet":true,"unit":"toistoa","tip":"Tee niin pitkään kuin jaksat. Painolla ei niin väliä — tee alasmenot hitaasti. Tärkeintä että mukana on jokin unilateraalinen liike.","alts":[{"name":"Bulgarialainen askelkyykky","tip":"Takajalka penkillä, 8–10 toistoa/jalka. Hidas alasmeno, paino etujalalla."},{"name":"Askelkyykky paikallaan","tip":"Pitkä askel = pakara, lyhyt = etureisi. Hidas alasmeno."}]},{"id":"loitonnus","name":"Loitonnuslaite","sets":2,"min":10,"max":12,"inc":2.5,"tip":"Pakara tekee työn — hallittu liike, pieni pito ääriasennossa.","alts":[{"name":"Loitonnus kuminauhalla","tip":"Nauha polvien yläpuolelle, jännitys koko sarjan ajan."},{"name":"Lantionnosto (hip thrust)","tip":"Yläselkä penkkiä vasten, purista pakara huipulla, hidas lasku."}]}]},"ti":{"title":"Yläkroppa","sub":"Salitreeni","type":"gym","ex":[{"id":"ylatalja","name":"Ylätalja","sets":3,"min":8,"max":10,"inc":2.5,"tip":"Hidas negatiivinen vaihe — päästä tanko ylös hallitusti.","alts":[{"name":"Leuanveto (avustettu)","tip":"Hallittu ylösveto, hidas lasku. Vähennä avustusta kun toistot täyttyvät."},{"name":"Ylätalja käänteisotteella","tip":"Kapea käänteisote — hauis mukana. Hidas ylöspäästö."}]},{"id":"vinopenkki","name":"Vinopenkki","sets":3,"min":6,"max":8,"inc":2.5,"tip":"Tee raskaana liikkeenä. Penkki melko pystyyn — aktivoi enemmän olkapäitä.","alts":[{"name":"Vinopenkki käsipainoilla","tip":"Pidempi liikerata, hidas lasku. Penkki samaan pystykulmaan."},{"name":"Tasapenkkipunnerrus","tip":"Lavat takana, jalat maassa. Hallittu lasku rinnalle."}]},{"id":"tbar","name":"T-Bar-soutu","sets":2,"min":8,"max":10,"inc":5,"tip":"Pää vartalon jatke, katse eteen. Älä riuhdo tankoa ylös — vedä hallitusti selällä. Negatiivinen hidas ja venyttävä.","alts":[{"name":"Kulmasoutu tangolla","tip":"Selkä suorana, vedä napaan. Ei riuhtomista — selkä tekee työn."},{"name":"Konesoutu","tip":"Rinta kiinni tuessa, hidas venyttävä palautus."}]},{"id":"hauis","name":"Hauiskääntö käsipainoilla","sets":3,"min":8,"max":10,"inc":1,"tip":"Kyynärpäät kiinni kyljissä ja alasmeno on hidas!","alts":[{"name":"Hauiskääntö tangolla","tip":"Kyynärpäät kyljissä, ei heijausta vartalolla. Hidas alasmeno."},{"name":"Hammer curl","tip":"Neutraali ote, kyynärpäät paikallaan. Hidas lasku."}]},{"id":"ojentaja","name":"Ojentajapunnerrus taljassa","sets":3,"min":8,"max":10,"inc":2.5,"tip":"V-mallinen tanko on paras! Kyynärpää pysyy paikallaan kiinni kyljessä — vain kyynärvarsi liikkuu.","alts":[{"name":"Ranskalainen punnerrus","tip":"Kyynärpäät kohti kattoa, vain kyynärvarret liikkuvat. Hidas lasku."},{"name":"Dippi penkiltä","tip":"Kyynärpäät taakse, ei sivulle. Hallittu alasmeno."}]},{"id":"vaparit","name":"Vipunostot sivulle","sets":2,"min":8,"max":10,"inc":1,"tip":"Tee istuen ja keskity tekemään olkapäällä — istuen liike-energia (heijaus) vähenee.","alts":[{"name":"Vipunostot taljassa","tip":"Tasainen vastus koko radalla. Pieni kyynärpään kulma, olkapää nostaa."},{"name":"Pystysoutu","tip":"Leveähkö ote, kyynärpäät johtavat. Nosta korkeintaan rinnan tasolle."}]}]},"ke":{"title":"Pitkä cardio","sub":"45–90 min · EI KOVAA","type":"cardio","tip":"Rasvanpolttoalue: noin 60–70 % maksimisykkeestä. Kävely, pyöräily, porraskone tai soutu — kävely on tutkitusti tehokkain rasvanpolton näkökulmasta."},"to":{"title":"Fore X","sub":"Askeltavoite täyteen silti!","type":"activity","tip":"Fore X -treeni. Kerää askeleet pitkin päivää — tavoite 10 000."},"pe":{"title":"Koko kroppa","sub":"Salitreeni","type":"gym","ex":[{"id":"pysty","name":"Pystypunnerrus","sets":3,"min":6,"max":8,"inc":2.5,"tip":"Tee voimaliikkeenä, penkki lähes pystysuorassa. Ajatus lihaksessa.","alts":[{"name":"Käsipainopunnerrus istuen","tip":"Selkänoja pystyssä, hallittu lasku korvien tasolle."},{"name":"Arnold-punnerrus","tip":"Kierto liikkeen aikana, kevyemmät painot. Hidas lasku."}]},{"id":"kyykky","name":"Takakyykky","sets":3,"min":6,"max":8,"inc":5,"tip":"Toinen iso liike — keskity tekniikkaan. Koroke jalkojen alle jos helpottaa alasmenoa. Hidas alasmeno kehittää!","alts":[{"name":"Etukyykky","tip":"Tanko etuolkapäillä, kyynärpäät ylhäällä. Pystympi selkä, hidas alasmeno."},{"name":"Goblet-kyykky","tip":"Käsipaino rinnalla. Hidas alasmeno, rinta ylhäällä."}]},{"id":"alatalja","name":"Alatalja","sets":2,"min":8,"max":10,"inc":2.5,"tip":"Hidas negatiivinen vaihe kunnon venytyksellä. Vahva keskiselkä auttaa maastavedossa!","alts":[{"name":"Kulmasoutu tangolla","tip":"Selkä suorana, vedä napaan, hallittu lasku."},{"name":"T-Bar-soutu","tip":"Katse eteen, vedä hallitusti selällä, venyttävä negatiivinen."}]},{"id":"keskivartalo","name":"Lankku","sets":3,"min":0,"max":0,"maxSet":true,"unit":"sek","tip":"3 × maksimi. Vahva keskivartalo auttaa kaikissa muissa liikkeissä. Kirjaa sekunnit.","alts":[{"name":"Roikkumisvatsat","tip":"Roikkuen tangossa, nosta polvet/jalat hallitusti — ei heijausta. Kirjaa toistot."},{"name":"Vatsarutistus taljassa","tip":"Polvillaan, rutista vatsalla — älä vedä käsillä. Kirjaa toistot."}]},{"id":"selka","name":"Selän ojennus (laite)","sets":2,"min":10,"max":12,"inc":2.5,"tip":"Patja suunnilleen lantion kohdalla, nouse vain suoraan linjaan — ajatus selässä (jopa hieman kaarella). Ota kahvakuula jos liian kevyt. Hidas palautus.","alts":[{"name":"Hyvää huomenta (kevyt)","tip":"Kevyt tanko niskaan, taivuta lantiosta selkä suorana."},{"name":"Lantionnosto (hip thrust)","tip":"Purista pakara huipulla, hidas lasku."}]}]},"la":{"title":"Vapaa treeni","sub":"Tee mitä tuntuu kivalta!","type":"free","tip":"Voit katsoa tilanteen mukaan, vaihdatko perjantain ja lauantain treenien paikkoja. Askeltavoite!"},"su":{"title":"Lepopäivä","sub":"Askeltavoite + kehonhuolto","type":"rest","tip":"Venyttely edistää palautumista ja aineenvaihduntaa. YouTubessa on hyviä kehonhuoltovideoita."}};
+const DAYS = ['ma','ti','ke','to','pe','la','su'];
+const DOW = {ma:'Maanantai',ti:'Tiistai',ke:'Keskiviikko',to:'Torstai',pe:'Perjantai',la:'Lauantai',su:'Sunnuntai'};
+const TYYPIT = [['gym','Salitreeni'],['cardio','Cardio'],['activity','Aktiviteetti'],['free','Vapaa treeni'],['rest','Lepopäivä']];
+const EKEY = 'knt_editori_v1';
+
+let ohjelma = null;
+try { ohjelma = JSON.parse(localStorage.getItem(EKEY)); } catch(e){}
+if (!ohjelma) ohjelma = { nimi:'', laatija:'Kia Norring', paivat: tyhja() };
+
+function tyhja(){
+  const p = {};
+  DAYS.forEach(d => p[d] = { title:'', sub:'', type:'rest', tip:'', ex:[] });
+  return p;
+}
+function talleta(){ localStorage.setItem(EKEY, JSON.stringify(ohjelma)); }
+function esc(s){ return String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function piirra(){
+  document.getElementById('onimi').value = ohjelma.nimi || '';
+  document.getElementById('olaatija').value = ohjelma.laatija || 'Kia Norring';
+  const root = document.getElementById('paivat');
+  root.innerHTML = DAYS.map(d => {
+    const p = ohjelma.paivat[d];
+    let sisus = '';
+    if (p.type === 'gym') {
+      sisus = (p.ex||[]).map((e,i) => liikeHtml(d,i,e)).join('')
+        + '<button class="lisaa" data-lisaa="'+d+'">+ lisää liike</button>';
+    } else {
+      sisus = '<label>Päivän ohje (näkyy asiakkaalle)</label>'
+        + '<textarea data-p="'+d+'" data-k="tip" rows="2">'+esc(p.tip)+'</textarea>';
+    }
+    return '<fieldset><legend>'+DOW[d]+'</legend>'
+      + '<div class="dayhead">'
+      + '<div><label>Otsikko</label><input data-p="'+d+'" data-k="title" value="'+esc(p.title)+'" placeholder="esim. Alakroppa"></div>'
+      + '<div><label>Alaotsikko</label><input data-p="'+d+'" data-k="sub" value="'+esc(p.sub)+'" placeholder="esim. Viikon raskain treeni"></div>'
+      + '<div><label>Tyyppi</label><select data-p="'+d+'" data-k="type">'
+      + TYYPIT.map(([v,n]) => '<option value="'+v+'"'+(p.type===v?' selected':'')+'>'+n+'</option>').join('')
+      + '</select></div>'
+      + '</div>' + sisus + '</fieldset>';
+  }).join('');
+  sido();
+}
+
+function liikeHtml(d,i,e){
+  const tyyppi = e.maxSet ? (e.unit==='sek' ? 'sek' : 'max') : 'painot';
+  return '<div class="liike">'
+    + '<div class="rivi1">'
+    + '<div><label>Liike</label><input list="liikepankki" data-ex="'+d+':'+i+'" data-k="name" value="'+esc(e.name)+'"></div>'
+    + '<div><label>Sarjat</label><input type="number" min="1" max="10" data-ex="'+d+':'+i+'" data-k="sets" value="'+(e.sets||3)+'"></div>'
+    + '<div><label>Toistot min</label><input type="number" min="0" data-ex="'+d+':'+i+'" data-k="min" value="'+(e.min||0)+'"></div>'
+    + '<div><label>max</label><input type="number" min="0" data-ex="'+d+':'+i+'" data-k="max" value="'+(e.max||0)+'"></div>'
+    + '<div><label>Mittaus</label><select data-ex="'+d+':'+i+'" data-k="tyyppi">'
+    + '<option value="painot"'+(tyyppi==='painot'?' selected':'')+'>painot × toistot</option>'
+    + '<option value="max"'+(tyyppi==='max'?' selected':'')+'>max toistot</option>'
+    + '<option value="sek"'+(tyyppi==='sek'?' selected':'')+'>sekunnit</option>'
+    + '</select></div></div>'
+    + '<div style="margin-top:8px"><label>Tekniikkaohje asiakkaalle</label>'
+    + '<input data-ex="'+d+':'+i+'" data-k="tip" value="'+esc(e.tip)+'" placeholder="esim. Hidas alasmeno, selkä suorana"></div>'
+    + '<div class="rivi2" style="margin-top:8px">'
+    + '<div><label>Vaihtoehtoliike 1 (valinnainen)</label><input list="liikepankki" data-ex="'+d+':'+i+'" data-k="alt1" value="'+esc(e.alts&&e.alts[0]?e.alts[0].name:'')+'"></div>'
+    + '<div><label>Vaihtoehtoliike 2</label><input list="liikepankki" data-ex="'+d+':'+i+'" data-k="alt2" value="'+esc(e.alts&&e.alts[1]?e.alts[1].name:'')+'"></div>'
+    + '<div style="display:flex;align-items:flex-end"><button class="poista" data-poista="'+d+':'+i+'">Poista liike</button></div>'
+    + '</div></div>';
+}
+
+function sido(){
+  document.querySelectorAll('[data-p]').forEach(el => {
+    el.onchange = el.oninput = () => {
+      ohjelma.paivat[el.dataset.p][el.dataset.k] = el.value;
+      if (el.dataset.k === 'type') piirra();
+      talleta();
+    };
+  });
+  document.querySelectorAll('[data-ex]').forEach(el => {
+    el.onchange = el.oninput = () => {
+      const [d,i] = el.dataset.ex.split(':');
+      const e = ohjelma.paivat[d].ex[+i];
+      const k = el.dataset.k;
+      if (k === 'tyyppi') {
+        e.maxSet = el.value !== 'painot';
+        e.unit = el.value === 'sek' ? 'sek' : (el.value === 'max' ? 'toistoa' : undefined);
+        if (e.maxSet) { e.min = 0; e.max = 0; }
+      } else if (k === 'alt1' || k === 'alt2') {
+        e.alts = e.alts || [];
+        const idx = k === 'alt1' ? 0 : 1;
+        if (el.value.trim()) e.alts[idx] = { name: el.value.trim(), tip: '' };
+        else e.alts[idx] = null;
+        e.alts = e.alts.filter(Boolean);
+      } else if (k === 'sets' || k === 'min' || k === 'max') {
+        e[k] = +el.value || 0;
+      } else {
+        e[k] = el.value;
+      }
+      talleta();
+    };
+  });
+  document.querySelectorAll('[data-lisaa]').forEach(b => b.onclick = () => {
+    const d = b.dataset.lisaa;
+    ohjelma.paivat[d].ex = ohjelma.paivat[d].ex || [];
+    ohjelma.paivat[d].ex.push({ name:'', sets:3, min:8, max:10, tip:'', alts:[] });
+    talleta(); piirra();
+  });
+  document.querySelectorAll('[data-poista]').forEach(b => b.onclick = () => {
+    const [d,i] = b.dataset.poista.split(':');
+    ohjelma.paivat[d].ex.splice(+i, 1);
+    talleta(); piirra();
+  });
+}
+
+document.getElementById('onimi').oninput = e => { ohjelma.nimi = e.target.value; talleta(); };
+document.getElementById('olaatija').oninput = e => { ohjelma.laatija = e.target.value; talleta(); };
+
+document.getElementById('esitayta').onclick = () => {
+  if (!confirm('Korvataanko nykyinen muokkaus perusohjelmalla?')) return;
+  ohjelma.paivat = JSON.parse(JSON.stringify(POHJA));
+  talleta(); piirra();
+};
+
+function viimeistele(){
+  const out = JSON.parse(JSON.stringify(ohjelma));
+  out.pvm = new Date().toLocaleDateString('fi-FI');
+  let jarj = 0;
+  for (const d of DAYS) {
+    const p = out.paivat[d];
+    p.title = p.title || {gym:'Salitreeni',cardio:'Cardio',activity:'Aktiviteetti',free:'Vapaa treeni',rest:'Lepopäivä'}[p.type];
+    if (p.type === 'gym') {
+      p.ex = (p.ex||[]).filter(e => e.name && e.name.trim());
+      p.ex.forEach(e => {
+        jarj++;
+        e.id = 'x' + jarj;
+        e.name = e.name.trim();
+        const n = e.name.toLowerCase();
+        e.inc = /kyykky|maastaveto|prässi|prassi|jalka/.test(n) ? 5 : 2.5;
+        if (e.maxSet) { e.unit = e.unit || 'toistoa'; }
+        e.alts = e.alts || [];
+      });
+      delete p.tip;
+    } else {
+      delete p.ex;
+      p.tip = p.tip || '';
+    }
+  }
+  return out;
+}
+
+function tarkista(){
+  const out = viimeistele();
+  const gymPaivat = DAYS.filter(d => out.paivat[d].type === 'gym');
+  for (const d of gymPaivat) {
+    if (!out.paivat[d].ex.length) {
+      ilmoita('Huom: ' + DOW[d] + ' on salitreeni ilman liikkeitä — lisää liikkeet tai vaihda tyyppi.', true);
+      return null;
+    }
+  }
+  if (!gymPaivat.length) { ilmoita('Ohjelmassa ei ole yhtään salitreeniä — lisää ainakin yksi.', true); return null; }
+  return out;
+}
+function ilmoita(txt, virhe){
+  const v = document.getElementById('viesti');
+  v.textContent = txt;
+  v.style.color = virhe ? 'var(--accent)' : 'var(--teal)';
+}
+
+document.getElementById('luolinkki').onclick = () => {
+  const out = tarkista();
+  if (!out) return;
+  const json = JSON.stringify(out);
+  const b64 = btoa(unescape(encodeURIComponent(json))).replace(/\+/g,'-').replace(/\//g,'_');
+  const linkki = 'https://kianorring.github.io/#ohjelma=' + b64;
+  document.getElementById('tulos').style.display = 'block';
+  document.getElementById('linkki').value = linkki;
+  ilmoita('Linkki luotu (' + Math.round(linkki.length/100)/10 + ' kt). Kopioi ja lähetä asiakkaalle.');
+};
+
+document.getElementById('kopioi').onclick = async () => {
+  const txt = document.getElementById('linkki').value;
+  try { await navigator.clipboard.writeText(txt); ilmoita('Linkki kopioitu ✓'); }
+  catch(e){ document.getElementById('linkki').select(); document.execCommand('copy'); ilmoita('Linkki kopioitu ✓'); }
+};
+
+document.getElementById('lataa').onclick = () => {
+  const out = tarkista();
+  if (!out) return;
+  const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (out.nimi || 'ohjelma').toLowerCase().replace(/[^a-z0-9äöå]+/g,'-') + '-ohjelma.json';
+  a.click(); URL.revokeObjectURL(a.href);
+};
+
+piirra();
+</script>
+</body>
+</html>
