@@ -569,9 +569,10 @@ function sessionDone(s, dk){
 }
 
 /* Viimeisin kirjaus liikevariantille (nimen mukaan) ennen annettua päivää */
-function findLast(variantName, beforeIso){
+function findLast(variantName, beforeIso, ohitaKevennys){
   const dates=Object.keys(state.sessions).filter(d=>d<beforeIso).sort().reverse();
   for(const d of dates){
+    if(ohitaKevennys && isDeload(d)) continue;
     const s=state.sessions[d];
     for(const e of Object.values(s.entries||{})){
       if(e.name===variantName && e.sets && e.sets.some(x=>x.r!=='' && x.r!=null)){
@@ -585,8 +586,11 @@ function topWeight(sets){ return Math.max(...sets.map(x=>parseFloat(x.w)||0)); }
 function roundInc(v,inc){ return Math.round(v/inc)*inc; }
 
 function suggestion(ex, variantName, dateIso){
-  const last=findLast(variantName, dateIso);
   const deload=isDeload(dateIso);
+  /* Kevennysviikkojen kirjaukset ohitetaan vertailussa: uusi sykli jatkuu
+     siitä mihin edellinen raskas viikko jäi (superkompensaatio). */
+  const last=findLast(variantName, dateIso, true);
+  const edellinenKevennys = !deload && isDeload(addDays(dateIso,-7));
   if(!last){
     return { cls:'', txt: deload
       ? 'Kevennysviikko — pidä kuormat reippaasti varman puolella.'
@@ -602,6 +606,10 @@ function suggestion(ex, variantName, dateIso){
     return { cls:'', txt:'Tavoite: yli '+best+' '+(ex.unit||'toistoa')+' — keho tarvitsee uuden ärsykkeen.' };
   }
   const allTop = last.sets.length>=ex.sets && last.sets.every(x=>(parseInt(x.r)||0)>=ex.max);
+  if(edellinenKevennys && tw>0){
+    return { cls:'', txt:'Kevennys takana — palaa raskaan viikon kuormiin: '+tw+' kg'
+      +(allTop?', tai kokeile '+(tw+ex.inc)+' kg — palautunut keho on vahvimmillaan.':' ja jatka toistojen kasvattamista.') };
+  }
   if(allTop && tw>0){
     return { cls:'', txt:'Viimeksi kaikki sarjat ylärajassa ('+ex.max+') → lisää painoa: kokeile '+(tw+ex.inc)+' kg.' };
   }
@@ -829,7 +837,7 @@ function renderWorkout(){
       const variant=(entry&&entry.name)||state.defaults[ex.id]||ex.name;
       const variants=[ex.name,...ex.alts.map(a=>a.name)];
       const vinfo = variant===ex.name ? ex : (ex.alts.find(a=>a.name===variant)||ex);
-      const last=findLast(variant, selDate);
+      const last=findLast(variant, selDate, true);
       const sug=suggestion(ex, variant, selDate);
       const target= ex.maxSet ? (ex.sets+' × max') : (ex.sets+' × '+ex.min+'–'+ex.max);
       const nsets = entry?entry.sets.length:ex.sets;
