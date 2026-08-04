@@ -249,7 +249,7 @@ const SKIPS = [
 ];
 const SKIPN = Object.fromEntries(SKIPS.map(x=>[x.k,x.n]));
 
-const PROGRAM = {
+const DEFAULT_PROGRAM = {
   ma: { title:'Alakroppa', sub:'Viikon raskain salitreeni', type:'gym', ex:[
     { id:'mave', name:'Maastaveto', sets:3, min:6, max:8, inc:5,
       tip:'Voimaliike — tee isolla kuormalla. Kun toistot lähenevät kahdeksaa, lisää painoa. Selkä suorana, tanko lähellä sääriä.',
@@ -355,6 +355,7 @@ const PROGRAM = {
   su: { title:'Lepopäivä', sub:'Askeltavoite + kehonhuolto', type:'rest',
     tip:'Venyttely edistää palautumista ja aineenvaihduntaa. YouTubessa on hyviä kehonhuoltovideoita.' },
 };
+let PROGRAM = DEFAULT_PROGRAM;
 const DAYS = ['ma','ti','ke','to','pe','la','su'];
 const DOW  = {ma:'Ma',ti:'Ti',ke:'Ke',to:'To',pe:'Pe',la:'La',su:'Su'};
 const DOWFULL = {ma:'Maanantai',ti:'Tiistai',ke:'Keskiviikko',to:'Torstai',pe:'Perjantai',la:'Lauantai',su:'Sunnuntai'};
@@ -375,6 +376,27 @@ if (!state.sessions) state.sessions = {};
 if (!state.defaults) state.defaults = {};
 if (!state.deloadEvery) state.deloadEvery = 4;
 if (!state.prs) state.prs = {};
+if (state.ohjelma && state.ohjelma.paivat) PROGRAM = state.ohjelma.paivat;
+
+/* Valmentajan ohjelmalinkki: #ohjelma=<base64url-JSON> */
+function tarkistaOhjelmaLinkki(){
+  const m = location.hash.match(/#ohjelma=([A-Za-z0-9\-_=]+)/);
+  if(!m) return;
+  try{
+    const b64 = m[1].replace(/-/g,'+').replace(/_/g,'/');
+    const json = decodeURIComponent(escape(atob(b64)));
+    const obj = JSON.parse(json);
+    if(!obj || !obj.paivat || !obj.paivat.ma) throw new Error('rakenne');
+    history.replaceState(null,'',location.pathname+location.search);
+    const nimi = obj.nimi || 'uusi ohjelma';
+    if(confirm('Valmentajalta saapui treeniohjelma: "'+nimi+'".\n\nOtetaanko se käyttöön? Aiemmat kirjauksesi säilyvät.')){
+      state.ohjelma = obj;
+      PROGRAM = obj.paivat;
+      localStorage.setItem(KEY, JSON.stringify(state));
+      toast('Ohjelma "'+nimi+'" käytössä ✓');
+    }
+  }catch(e){ toast('Ohjelmalinkin luku epäonnistui — pyydä valmentajalta uusi linkki.'); }
+}
 
 let saveTimer=null;
 function save(quiet){
@@ -1084,6 +1106,14 @@ function renderHistory(){
 /* ---------- ASETUKSET ---------- */
 function renderSettings(){
   let html='<div class="dayhead"><h2>Asetukset</h2></div>'
+    +'<div class="card"><h3 style="font-size:17px">📋 Treeniohjelma</h3>'
+    +(state.ohjelma
+      ? '<div class="muted" style="margin-bottom:10px">Käytössä: <b style="color:var(--text)">'+esc(state.ohjelma.nimi||'oma ohjelma')+'</b>'
+        +(state.ohjelma.laatija?' · laatinut '+esc(state.ohjelma.laatija):'')
+        +(state.ohjelma.pvm?' · '+esc(state.ohjelma.pvm):'')+'</div>'
+        +'<button class="ghost" id="btnoletusohjelma">Palauta perusohjelma</button>'
+      : '<div class="muted">Käytössä: Kian perusohjelma. Valmentaja voi lähettää sinulle räätälöidyn ohjelman linkkinä — avaa linkki tällä laitteella, niin ohjelma vaihtuu automaattisesti. Kirjauksesi säilyvät aina.</div>')
+    +'</div>'
     +'<div class="card"><h3 style="font-size:17px">☁️ Pilvisynkronointi</h3>'
     +(cloudOn()
       ? '<div class="muted" style="margin-bottom:10px">Kirjautunut: <b style="color:var(--text)">'+esc((sbSession.user&&sbSession.user.email)||'')+'</b>'
@@ -1125,6 +1155,15 @@ function renderSettings(){
   const bo=document.getElementById('btnlogout');
   if(bo) bo.onclick=()=>{ sbSession=null; saveAuth(); syncMsg=''; toast('Kirjauduttu ulos'); render(); };
 
+  const bpo=document.getElementById('btnoletusohjelma');
+  if(bpo) bpo.onclick=()=>{
+    if(confirm('Palautetaanko perusohjelma? Kirjauksesi säilyvät.')){
+      delete state.ohjelma;
+      PROGRAM = DEFAULT_PROGRAM;
+      save(); render();
+    }
+  };
+
   document.getElementById('setstart').onchange=e=>{
     if(e.target.value){ state.start=iso(mondayOf(fromIso(e.target.value))); save(); updateTopbar(); }
   };
@@ -1165,6 +1204,7 @@ function renderSettings(){
 document.querySelectorAll('#tabs button').forEach(b=>{
   b.addEventListener('click',()=>{ tab=b.dataset.tab; render(); });
 });
+tarkistaOhjelmaLinkki();
 render();
 cloudBoot();
 </script>
