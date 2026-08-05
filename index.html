@@ -658,6 +658,33 @@ function render(keepScroll){
   window.scrollTo(0,y);
 }
 
+/* ---------- PWA-asennusvihje ---------- */
+let asennusKehote=null;
+window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); asennusKehote=e; if(tab==='home') render(true); });
+window.addEventListener('appinstalled',()=>{ asennusKehote=null; localStorage.setItem('knt_asennusvihje_piilotettu','1'); if(tab==='home') render(true); });
+function asennettuna(){ return matchMedia('(display-mode: standalone)').matches || navigator.standalone===true; }
+function asennusVihjeHtml(){
+  if(asennettuna() || localStorage.getItem('knt_asennusvihje_piilotettu')) return '';
+  const ios=/iPad|iPhone|iPod/.test(navigator.userAgent);
+  let sisus;
+  if(ios){
+    sisus='<ol class="muted" style="margin:8px 0 0;padding-left:20px;line-height:1.7">'
+      +'<li>Napauta Safarin <b>Jaa-nappia</b> (neliö, josta nuoli ylös)</li>'
+      +'<li>Vieritä alas ja valitse <b>"Lisää Koti-valikkoon"</b></li>'
+      +'<li>Napauta <b>Lisää</b> — valmis!</li></ol>';
+  } else if(asennusKehote){
+    sisus='<button class="primary" id="btnasenna" style="margin-top:10px;width:100%">Asenna sovellus</button>';
+  } else {
+    sisus='<div class="muted" style="margin-top:8px">Avaa selaimen valikko (⋮) ja valitse <b>"Lisää aloitusnäyttöön"</b> tai <b>"Asenna sovellus"</b>.</div>';
+  }
+  return '<div class="card">'
+    +'<h3 style="font-size:17px">📲 Asenna appi puhelimeesi</h3>'
+    +'<div class="muted" style="margin-top:6px">Saat päiväkirjan omalla KN-kuvakkeella puhelimen Koti-valikkoon — aukeaa kokoruudussa kuin sovellus ja toimii myös ilman verkkoa. Kirjauksesi säilyvät ennallaan.</div>'
+    +sisus
+    +'<button class="ghost" id="btnvihjepois" style="margin-top:10px;width:100%">Piilota ohje</button>'
+    +'</div>';
+}
+
 /* ---------- KOTI ---------- */
 function renderHome(){
   const mon=iso(mondayOf(new Date()));
@@ -688,6 +715,8 @@ function renderHome(){
     +'<div class="muted" style="margin-top:8px">Yhteensä kirjattu '+total+' treeniä.</div>'
     +'<button class="primary" id="gotoworkout" style="margin-top:12px;width:100%">Avaa päivän treeni →</button>'
     +'</div>';
+
+  html+=asennusVihjeHtml();
 
   /* Valmennuspalvelut */
   html+='<div class="card"><h3 style="font-size:17px">⭐ Henkilökohtainen valmennus</h3>'
@@ -746,6 +775,10 @@ function renderHome(){
 
   $view.innerHTML=html;
   document.getElementById('gotoworkout').onclick=()=>{ selDate=iso(new Date()); tab='workout'; render(); };
+  const ba=document.getElementById('btnasenna');
+  if(ba) ba.onclick=async()=>{ if(!asennusKehote) return; asennusKehote.prompt(); await asennusKehote.userChoice; asennusKehote=null; render(true); };
+  const bv=document.getElementById('btnvihjepois');
+  if(bv) bv.onclick=()=>{ localStorage.setItem('knt_asennusvihje_piilotettu','1'); render(true); };
 }
 
 /* ---------- VIIKKO ---------- */
