@@ -2,11 +2,16 @@
 /* KN Training service worker — offline-tuki.
    Navigointi: verkko ensin (päivitykset perille), välimuisti varalla.
    Muut: välimuisti ensin, taustapäivitys. */
-const CACHE = 'knt-v1';
+const CACHE = 'knt-v2';
 const PRECACHE = ['/', '/manifest.webmanifest', '/kn-192.png', '/kn-512.png'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE)).then(() => self.skipWaiting()));
+  /* Ei skipWaiting-kutsua: uusi versio jää odottamaan, kunnes käyttäjä
+     hyväksyy päivityksen (sivu lähettää SKIP_WAITING-viestin). */
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(PRECACHE)));
+});
+self.addEventListener('message', e => {
+  if (e.data === 'SKIP_WAITING') self.skipWaiting();
 });
 self.addEventListener('activate', e => {
   e.waitUntil(
