@@ -1,0 +1,25 @@
+{
+  "name": "Kia Norring Training — Treenipäiväkirja",
+  "short_name": "KN Training",
+  "description": "Treenipäiväkirja: kirjaa painot ja toistot, seuraa kehitystä.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#101318",
+  "theme_color": "#101318",
+  "lang": "fi",
+  "icons": [
+    {
+      "src": "kn-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "kn-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
