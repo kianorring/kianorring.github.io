@@ -206,6 +206,20 @@
     padding:8px 18px;border-radius:999px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:40;
   }
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #paivitysbanneri{
+    position:fixed;bottom:76px;left:50%;transform:translateX(-50%);
+    display:flex;align-items:center;gap:10px;white-space:nowrap;
+    background:var(--surface2);border:1px solid var(--accent);color:var(--text);
+    padding:10px 12px 10px 16px;border-radius:14px;font-size:14px;z-index:41;
+    box-shadow:0 4px 20px rgba(0,0,0,.4);max-width:calc(100% - 24px);
+  }
+  #paivitysbanneri .pb-paivita{
+    background:var(--accent);color:#101318;border:0;border-radius:999px;
+    padding:7px 14px;font-size:14px;font-weight:600;cursor:pointer;
+  }
+  #paivitysbanneri .pb-sulje{
+    background:none;border:0;color:var(--muted);font-size:16px;cursor:pointer;padding:4px 6px;
+  }
   .deload-banner{
     background:rgba(76,201,192,.12);border:1px solid var(--teal);border-radius:var(--radius);
     padding:10px 14px;margin:10px 0;font-size:14px;color:var(--teal);
@@ -1255,8 +1269,36 @@ document.querySelectorAll('#tabs button').forEach(b=>{
 tarkistaOhjelmaLinkki();
 render();
 cloudBoot();
+function naytaPaivitysbanneri(reg){
+  if(document.getElementById('paivitysbanneri')) return;
+  const b=document.createElement('div');
+  b.id='paivitysbanneri';
+  b.innerHTML='<span>Uusi versio saatavilla</span>'
+    +'<button class="pb-paivita">Päivitä</button>'
+    +'<button class="pb-sulje" aria-label="Myöhemmin">✕</button>';
+  document.body.appendChild(b);
+  b.querySelector('.pb-paivita').onclick=()=>{ if(reg.waiting) reg.waiting.postMessage('SKIP_WAITING'); };
+  b.querySelector('.pb-sulje').onclick=()=>b.remove();
+}
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
+  const oliControlleri = !!navigator.serviceWorker.controller;
+  let reloadattu = false;
+  navigator.serviceWorker.addEventListener('controllerchange', ()=>{
+    /* Uusi versio otti ohjat: lataa sivu kerran uudelleen. Ei ensiasennuksella. */
+    if(!oliControlleri || reloadattu) return;
+    reloadattu = true; location.reload();
+  });
+  navigator.serviceWorker.register('sw.js').then(reg=>{
+    const tarjoa=()=>{ if(reg.waiting && navigator.serviceWorker.controller) naytaPaivitysbanneri(reg); };
+    tarjoa();
+    reg.addEventListener('updatefound', ()=>{
+      const uusi=reg.installing;
+      if(uusi) uusi.addEventListener('statechange', tarjoa);
+    });
+    document.addEventListener('visibilitychange', ()=>{
+      if(document.visibilityState==='visible') reg.update().catch(()=>{});
+    });
+  }).catch(()=>{});
 }
 </script>
 
