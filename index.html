@@ -1290,13 +1290,13 @@ if ('serviceWorker' in navigator) {
   });
   navigator.serviceWorker.register('sw.js').then(reg=>{
     const tarjoa=()=>{ if(reg.waiting && navigator.serviceWorker.controller) naytaPaivitysbanneri(reg); };
-    tarjoa();
-    reg.addEventListener('updatefound', ()=>{
-      const uusi=reg.installing;
-      if(uusi) uusi.addEventListener('statechange', tarjoa);
-    });
+    /* seuraa: uusi versio voi olla jo asentumassa ennen kuin updatefound-
+       kuuntelija ehtii paikalleen — siksi installing tarkistetaan myös heti. */
+    const seuraa=w=>{ if(w) w.addEventListener('statechange', tarjoa); };
+    tarjoa(); seuraa(reg.installing);
+    reg.addEventListener('updatefound', ()=>seuraa(reg.installing));
     document.addEventListener('visibilitychange', ()=>{
-      if(document.visibilityState==='visible') reg.update().catch(()=>{});
+      if(document.visibilityState==='visible'){ tarjoa(); reg.update().catch(()=>{}); }
     });
   }).catch(()=>{});
 }
