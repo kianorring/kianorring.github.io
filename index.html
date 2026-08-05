@@ -224,6 +224,13 @@
     background:rgba(76,201,192,.12);border:1px solid var(--teal);border-radius:var(--radius);
     padding:10px 14px;margin:10px 0;font-size:14px;color:var(--teal);
   }
+  .card.ex-tehty{border-color:rgba(76,195,138,.55)}
+  .tehty-merkki{
+    float:right;background:rgba(76,195,138,.14);color:var(--f-kevyt);
+    border:1px solid rgba(76,195,138,.5);border-radius:999px;
+    font:600 12px -apple-system,sans-serif;letter-spacing:0;text-transform:none;
+    padding:3px 10px;margin-left:8px;
+  }
   @media (prefers-reduced-motion:reduce){ #toast{transition:none} }
 </style>
 
@@ -583,6 +590,11 @@ function sessionDone(s, dk){
   if(s.cardio && s.cardio.kesto) return true;
   return Object.values(s.entries||{}).some(e=>e.sets && e.sets.some(x=>x.r!=='' && x.r!=null));
 }
+/* Liike on tehty, kun kirjattuja sarjoja on vähintään ohjelman sarjamäärä */
+function liikeTehty(entry, ex){
+  if(!entry || !entry.sets) return false;
+  return entry.sets.filter(x=>x.r!=='' && x.r!=null).length >= ex.sets;
+}
 
 /* Viimeisin kirjaus liikevariantille (nimen mukaan) ennen annettua päivää */
 function findLast(variantName, beforeIso, ohitaKevennys){
@@ -891,8 +903,10 @@ function renderWorkout(){
       const target= ex.maxSet ? (ex.sets+' × max') : (ex.sets+' × '+ex.min+'–'+ex.max);
       const nsets = entry?entry.sets.length:ex.sets;
 
-      html+='<div class="card" data-ex="'+ex.id+'">'
-        +'<h3>'+esc(variant)+' <span class="muted" style="font:400 14px -apple-system,sans-serif;text-transform:none">'+target+'</span></h3>'
+      const tehty=liikeTehty(entry, ex);
+      html+='<div class="card'+(tehty?' ex-tehty':'')+'" data-ex="'+ex.id+'">'
+        +'<h3><span class="tehty-merkki" data-tehty'+(tehty?'':' hidden')+'>✓ Tehty</span>'
+        +esc(variant)+' <span class="muted" style="font:400 14px -apple-system,sans-serif;text-transform:none">'+target+'</span></h3>'
         +'<div class="variant"><span class="swap">Variaatio:</span><select data-varsel>'
         + variants.map(v=>'<option'+(v===variant?' selected':'')+'>'+esc(v)+'</option>').join('')
         +'</select></div>'
@@ -980,6 +994,11 @@ function renderWorkout(){
         /* iOS: suomalainen näppäimistö antaa pilkun desimaalierottimeksi → normalisoi pisteeksi */
         const v = inp.dataset.f==='w' ? inp.value.replace(/,/g,'.').replace(/[^\d.]/g,'').trim() : inp.value;
         e.sets[+inp.dataset.set][inp.dataset.f]=v;
+        /* Tehty-merkintä päivittyy paikan päällä — täysi render veisi näppäimistöfokuksen */
+        const valmis=liikeTehty(e, ex);
+        card.classList.toggle('ex-tehty', valmis);
+        const merkki=card.querySelector('[data-tehty]');
+        if(merkki) merkki.hidden=!valmis;
         save();
       });
     });
