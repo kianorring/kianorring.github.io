@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101318">
+<title>Valmentajanäkymä — Kia Norring Training</title>
+<style>
+  :root{
+    --bg:#101318; --surface:#191e26; --surface2:#222a36; --line:#2b3442;
+    --text:#e9ecf1; --muted:#8a94a6; --accent:#ffb454; --accent-ink:#241a08;
+    --teal:#4cc9c0; --ok:#4cc38a; --varo:#e5934a; --paha:#e05a6d;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    padding-bottom:40px;
+  }
+  header{
+    padding:calc(env(safe-area-inset-top,0px) + 16px) 16px 12px;
+    border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;
+  }
+  .kn{
+    width:44px;height:44px;flex:none;border:2px solid var(--accent);border-radius:9px;
+    display:flex;align-items:center;justify-content:center;
+    font:700 17px "Avenir Next Condensed","Arial Narrow",sans-serif;color:var(--accent);
+  }
+  header h1{margin:0;font:700 20px "Avenir Next Condensed","Arial Narrow",sans-serif;
+    text-transform:uppercase;letter-spacing:.06em}
+  header .sub{font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--accent)}
+  header .who{margin-left:auto;text-align:right;font-size:12px;color:var(--muted)}
+  header .who a{color:var(--muted)}
+  main{max-width:760px;margin:0 auto;padding:16px}
+  .card{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px;margin:12px 0;
+  }
+  h2{font:700 18px "Avenir Next Condensed","Arial Narrow",sans-serif;
+    text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px}
+  h3{font-size:16px;margin:0 0 6px}
+  .muted{color:var(--muted);font-size:13px}
+  input,select,textarea,button{font:inherit;border-radius:10px}
+  input,textarea,select{
+    background:var(--surface2);border:1px solid var(--line);color:var(--text);
+    padding:10px 12px;width:100%;font-size:16px;
+  }
+  textarea{resize:vertical}
+  button.primary{
+    background:var(--accent);color:var(--accent-ink);border:0;font-weight:700;
+    padding:11px 18px;cursor:pointer;width:100%;
+  }
+  button.ghost{
+    background:none;border:1px solid var(--line);color:var(--text);
+    padding:9px 14px;cursor:pointer;
+  }
+  button:disabled{opacity:.5}
+  .rivi{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .tila{
+    font-size:12px;font-weight:600;border-radius:999px;padding:2px 10px;
+    border:1px solid var(--line);color:var(--muted);white-space:nowrap;
+  }
+  .tila.aktiivinen{color:var(--ok);border-color:var(--ok)}
+  .tila.kutsuttu{color:var(--accent);border-color:var(--accent)}
+  .tila.tauolla{color:var(--varo);border-color:var(--varo)}
+  .tila.paattynyt{color:var(--paha);border-color:var(--paha)}
+  .asiakas{
+    width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--radius);padding:14px 16px;margin:8px 0;cursor:pointer;
+    display:flex;align-items:center;gap:10px;color:var(--text);
+  }
+  .asiakas:hover{border-color:var(--accent)}
+  .asiakas .nimi{font-weight:600}
+  .asiakas .em{font-size:12px;color:var(--muted)}
+  .viikkonav{display:flex;align-items:center;gap:10px;margin:14px 0 6px}
+  .viikkonav h3{flex:1;text-align:center;margin:0}
+  .paiva{border-top:1px solid var(--line);padding:10px 0}
+  .paiva:first-of-type{border-top:0}
+  .paiva .pv{font-weight:600;font-size:14px}
+  .liike{font-size:13px;color:var(--muted);margin-left:12px}
+  .liike b{color:var(--text);font-weight:600}
+  .feel-tag{font-size:12px;border-radius:999px;padding:1px 8px;border:1px solid var(--line)}
+  .feel-kevyt{color:var(--ok);border-color:var(--ok)}
+  .feel-sopiva{color:#5b9dd9;border-color:#5b9dd9}
+  .feel-raskas{color:var(--varo);border-color:var(--varo)}
+  .feel-eraskas{color:var(--paha);border-color:var(--paha)}
+  .statgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}
+  .stat{background:var(--surface2);border-radius:10px;padding:8px;text-align:center}
+  .stat b{display:block;font-size:20px;color:var(--accent)}
+  .stat span{font-size:11px;color:var(--muted)}
+  .kommentti{background:var(--surface2);border-radius:10px;padding:10px 12px;margin:8px 0}
+  .kommentti .aika{font-size:11px;color:var(--muted)}
+  #toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--surface2);border:1px solid var(--line);color:var(--text);
+    padding:8px 18px;border-radius:999px;font-size:14px;opacity:0;transition:.25s;
+    pointer-events:none;z-index:40;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  @media (max-width:520px){ .statgrid{grid-template-columns:repeat(2,1fr)} }
+</style>
+</head>
+<body>
+<header>
+  <div class="kn">KN</div>
+  <div>
+    <h1>Valmentajanäkymä</h1>
+    <div class="sub">Kia Norring Training</div>
+  </div>
+  <div class="who" id="who"></div>
+</header>
+<main id="view"><div class="card muted">Ladataan…</div></main>
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* ============ Supabase-kytkentä (sama sessio kuin sovelluksella) ============ */
+const SB_URL='https://iroupwdszrboyjysjjcq.supabase.co';
+const SB_KEY='sb_publishable_Ud9cZaeyQ8TRth-_ALwvmA_PBlZmzGi';
+let sbSession=null;
+let minaProfiili=null;
+
+function loadAuth(){ try{ sbSession=JSON.parse(localStorage.getItem('tpk_auth'))||null; }catch(e){ sbSession=null; } }
+function saveAuth(){ if(sbSession) localStorage.setItem('tpk_auth', JSON.stringify(sbSession)); else localStorage.removeItem('tpk_auth'); }
+function sbHeaders(){ return { apikey:SB_KEY, Authorization:'Bearer '+sbSession.access_token, 'Content-Type':'application/json' }; }
+function cloudOn(){ return !!(sbSession && sbSession.user && sbSession.user.id); }
+
+function handleAuthHash(){
+  if(location.hash && location.hash.indexOf('access_token=')>=0){
+    const p=new URLSearchParams(location.hash.slice(1));
+    const at=p.get('access_token'), rt=p.get('refresh_token');
+    if(at){ sbSession={access_token:at, refresh_token:rt, user:null}; saveAuth();
+      history.replaceState(null,'',location.pathname+location.search); }
+  }
+}
+async function sbSendLink(email){
+  const r=await fetch(SB_URL+'/auth/v1/otp?redirect_to='+encodeURIComponent(location.origin+'/valmentaja.html'),{
+    method:'POST', headers:{apikey:SB_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({email:email, create_user:true})});
+  if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.msg||j.error_description||('HTTP '+r.status)); }
+}
+async function sbRefresh(){
+  if(!sbSession||!sbSession.refresh_token) return false;
+  try{
+    const r=await fetch(SB_URL+'/auth/v1/token?grant_type=refresh_token',{
+      method:'POST', headers:{apikey:SB_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({refresh_token:sbSession.refresh_token})});
+    if(!r.ok) throw new Error('refresh');
+    const j=await r.json();
+    sbSession={access_token:j.access_token, refresh_token:j.refresh_token, user:j.user||sbSession.user};
+    saveAuth(); return true;
+  }catch(e){ sbSession=null; saveAuth(); return false; }
+}
+async function sbUser(){
+  if(!sbSession) return null;
+  if(!sbSession.user){
+    try{
+      const r=await fetch(SB_URL+'/auth/v1/user',{headers:{apikey:SB_KEY,Authorization:'Bearer '+sbSession.access_token}});
+      if(r.ok){ sbSession.user=await r.json(); saveAuth(); }
+    }catch(e){}
+  }
+  return sbSession.user;
+}
+async function apiGet(polku){
+  const r=await fetch(SB_URL+'/rest/v1/'+polku,{headers:sbHeaders()});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.json();
+}
+async function apiPost(polku, body, extra){
+  const r=await fetch(SB_URL+'/rest/v1/'+polku,{
+    method:'POST', headers:Object.assign(sbHeaders(),extra||{}), body:JSON.stringify(body)});
+  if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.message||('HTTP '+r.status)); }
+  return r.status===204?null:r.json().catch(()=>null);
+}
+async function apiPatch(polku, body){
+  const r=await fetch(SB_URL+'/rest/v1/'+polku,{
+    method:'PATCH', headers:sbHeaders(), body:JSON.stringify(body)});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+}
+
+/* ============ Apurit ============ */
+const $view=document.getElementById('view');
+const FEELN={kevyt:'Kevyt',sopiva:'Sopiva',raskas:'Raskas',eraskas:'Erittäin raskas'};
+const SKIPN={sairas:'Sairaana',matka:'Matkoilla',muu:'Muu syy'};
+const DAYS=['ma','ti','ke','to','pe','la','su'];
+const DOWFULL={ma:'Maanantai',ti:'Tiistai',ke:'Keskiviikko',to:'Torstai',pe:'Perjantai',la:'Lauantai',su:'Sunnuntai'};
+function esc(s){ return String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function iso(d){ const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+function fromIso(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function addDays(s,n){ const d=fromIso(s); d.setDate(d.getDate()+n); return iso(d); }
+function mondayOf(d){ const x=new Date(d); const wd=(x.getDay()+6)%7; x.setDate(x.getDate()-wd); return x; }
+function fmtFi(s){ const d=fromIso(s); return d.getDate()+'.'+(d.getMonth()+1)+'.'; }
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),1800);
+}
+
+/* ============ Näkymät ============ */
+let valittu=null;          /* valittu asiakas {id, nimi, email, tila, asiakkuusId} */
+let viikkoMon=iso(mondayOf(new Date()));
+
+function naytaKirjautuminen(virhe){
+  document.getElementById('who').innerHTML='';
+  $view.innerHTML=
+    '<div class="card"><h2>Kirjaudu</h2>'
+    +(virhe?'<div class="muted" style="color:var(--paha)">'+esc(virhe)+'</div>':'')
+    +'<div class="muted" style="margin:6px 0 12px">Saat sähköpostiisi kirjautumislinkin. Sama tunnus toimii sovelluksessa ja valmentajanäkymässä.</div>'
+    +'<div class="rivi"><input type="email" id="email" placeholder="sähköposti" autocomplete="email" style="flex:1;min-width:200px">'
+    +'<button class="primary" id="btnlogin" style="width:auto">Lähetä linkki</button></div>'
+    +'<div class="muted" id="lstatus" style="margin-top:8px"></div></div>';
+  document.getElementById('btnlogin').onclick=async()=>{
+    const em=document.getElementById('email').value.trim();
+    if(!em){ toast('Anna sähköposti'); return; }
+    const st=document.getElementById('lstatus');
+    try{ await sbSendLink(em); st.textContent='Linkki lähetetty — avaa se tästä selaimesta.'; }
+    catch(e){ st.textContent='Lähetys epäonnistui: '+e.message; }
+  };
+}
+
+function naytaEiOikeuksia(){
+  $view.innerHTML='<div class="card"><h2>Ei valmentajaoikeuksia</h2>'
+    +'<div class="muted">Tämä näkymä on valmentajille. Olet kirjautunut, mutta tunnuksellasi ei ole valmentajaroolia. '
+    +'Sovellus toimii normaalisti osoitteessa <a href="/" style="color:var(--accent)">kianorring.github.io</a>.</div></div>';
+}
+
+async function naytaAsiakkaat(){
+  valittu=null;
+  let asiakkuudet=[], profiilit=[];
+  try{
+    asiakkuudet=await apiGet('asiakkuudet?select=id,asiakas_id,email,tila,alkoi&order=alkoi.desc');
+    profiilit=await apiGet('profiles?select=id,nimi&valmentaja_id=eq.'+sbSession.user.id);
+  }catch(e){ $view.innerHTML='<div class="card muted">Lataus epäonnistui: '+esc(e.message)+'</div>'; return; }
+  const nimet=Object.fromEntries(profiilit.map(p=>[p.id,p.nimi]));
+
+  let html='<div class="card"><h2>Kutsu uusi asiakas</h2>'
+    +'<div class="muted" style="margin:4px 0 10px">Syötä asiakkaan sähköposti. Kun asiakas kirjautuu sovellukseen samalla osoitteella, hän liittyy sinulle automaattisesti.</div>'
+    +'<div class="rivi"><input type="email" id="kutsuemail" placeholder="asiakkaan sähköposti" style="flex:1;min-width:200px">'
+    +'<button class="primary" id="btnkutsu" style="width:auto">Kutsu</button></div></div>';
+
+  html+='<h2 style="margin:18px 0 4px">Asiakkaat</h2>';
+  if(!asiakkuudet.length) html+='<div class="card muted">Ei vielä asiakkaita. Aloita kutsumalla ensimmäinen.</div>';
+  for(const a of asiakkuudet){
+    const nimi=a.asiakas_id ? (nimet[a.asiakas_id]||a.email) : a.email;
+    html+='<button class="asiakas" data-id="'+a.id+'">'
+      +'<span style="flex:1"><span class="nimi">'+esc(nimi)+'</span><br><span class="em">'+esc(a.email)+' · alkaen '+fmtFi(a.alkoi)+'</span></span>'
+      +'<span class="tila '+a.tila+'">'+a.tila+'</span></button>';
+  }
+  $view.innerHTML=html;
+
+  document.getElementById('btnkutsu').onclick=async()=>{
+    const em=document.getElementById('kutsuemail').value.trim().toLowerCase();
+    if(!em||!em.includes('@')){ toast('Tarkista sähköposti'); return; }
+    try{
+      await apiPost('asiakkuudet',{valmentaja_id:sbSession.user.id, email:em},{Prefer:'return=minimal'});
+      toast('Kutsu tallennettu ✓'); naytaAsiakkaat();
+    }catch(e){ toast(e.message.includes('duplicate')?'Tällä osoitteella on jo kutsu':('Virhe: '+e.message)); }
+  };
+  $view.querySelectorAll('.asiakas').forEach(b=>b.onclick=()=>{
+    const a=asiakkuudet.find(x=>String(x.id)===b.dataset.id);
+    valittu={ id:a.asiakas_id, nimi:(a.asiakas_id&&nimet[a.asiakas_id])||a.email, email:a.email, tila:a.tila, asiakkuusId:a.id };
+    viikkoMon=iso(mondayOf(new Date()));
+    naytaAsiakas();
+  });
+}
+
+function sessioTehty(s){
+  if(!s) return false;
+  if(s.done) return true;
+  if(s.cardio && s.cardio.kesto) return true;
+  return Object.values(s.entries||{}).some(e=>e.sets && e.sets.some(x=>x.r!=='' && x.r!=null));
+}
+
+async function naytaAsiakas(){
+  const a=valittu;
+  const loppu=addDays(viikkoMon,6);
+  let rivit=[], kommentit=[];
+  try{
+    if(a.id){
+      rivit=await apiGet('sessions?select=pvm,data&user_id=eq.'+a.id+'&pvm=gte.'+viikkoMon+'&pvm=lte.'+loppu+'&order=pvm');
+      kommentit=await apiGet('comments?select=id,viikko,teksti,created_at&valmennettava_id=eq.'+a.id+'&viikko=eq.'+viikkoMon+'&order=created_at');
+    }
+  }catch(e){ toast('Lataus epäonnistui: '+e.message); }
+  const perPvm=Object.fromEntries(rivit.map(r=>[r.pvm,r.data]));
+
+  /* viikon tunnusluvut */
+  let tehty=0, sarjat=0, askeleet=0, askelPv=0;
+  for(let i=0;i<7;i++){
+    const s=perPvm[addDays(viikkoMon,i)];
+    if(!s) continue;
+    if(sessioTehty(s)) tehty++;
+    for(const e of Object.values(s.entries||{})) sarjat+=(e.sets||[]).filter(x=>x.r!==''&&x.r!=null).length;
+    if(s.steps){ askeleet+=parseInt(s.steps)||0; askelPv++; }
+  }
+
+  let html='<button class="ghost" id="takaisin">‹ Asiakkaat</button>'
+    +'<div class="card"><div class="rivi"><h2 style="flex:1;margin:0">'+esc(a.nimi)+'</h2>'
+    +'<select id="tilasel" style="width:auto">'
+    +['kutsuttu','aktiivinen','tauolla','paattynyt'].map(t=>'<option'+(t===a.tila?' selected':'')+'>'+t+'</option>').join('')
+    +'</select></div>'
+    +'<div class="muted">'+esc(a.email)+'</div>'
+    +(a.id?'':'<div class="muted" style="margin-top:8px;color:var(--accent)">Odottaa ensimmäistä kirjautumista — kirjaukset näkyvät tässä heti kun asiakas aloittaa.</div>')
+    +'</div>';
+
+  html+='<div class="viikkonav"><button class="ghost" id="vprev">‹</button>'
+    +'<h3>Viikko '+fmtFi(viikkoMon)+'–'+fmtFi(loppu)+'</h3>'
+    +'<button class="ghost" id="vnext">›</button></div>';
+
+  if(a.id){
+    html+='<div class="card"><div class="statgrid">'
+      +'<div class="stat"><b>'+tehty+'</b><span>treeniä</span></div>'
+      +'<div class="stat"><b>'+sarjat+'</b><span>sarjaa</span></div>'
+      +'<div class="stat"><b>'+(askelPv?Math.round(askeleet/askelPv/100)/10+'k':'—')+'</b><span>askelta/pv</span></div>'
+      +'<div class="stat"><b>'+rivit.length+'</b><span>kirjauspäivää</span></div>'
+      +'</div>';
+
+    for(let i=0;i<7;i++){
+      const pv=addDays(viikkoMon,i), s=perPvm[pv];
+      html+='<div class="paiva"><div class="rivi"><span class="pv">'+DOWFULL[DAYS[i]]+' '+fmtFi(pv)+'</span>';
+      if(!s){ html+='<span class="muted">— ei kirjausta</span></div></div>'; continue; }
+      if(s.skipped){ html+='<span class="muted">⊘ '+ (SKIPN[s.skipped]||'Ohitettu') +'</span></div></div>'; continue; }
+      if(s.feel) html+='<span class="feel-tag feel-'+s.feel+'">'+FEELN[s.feel]+'</span>';
+      if(s.steps) html+='<span class="muted">'+s.steps+' askelta</span>';
+      html+='</div>';
+      for(const e of Object.values(s.entries||{})){
+        const st=(e.sets||[]).filter(x=>x.r!==''&&x.r!=null);
+        if(!st.length) continue;
+        html+='<div class="liike"><b>'+esc(e.name)+'</b> '+st.map(x=>(x.w!==''&&x.w!=null?x.w+'kg':'')+'×'+x.r).join(' · ')
+          +(e.feel?' <span class="feel-tag feel-'+e.feel+'">'+FEELN[e.feel]+'</span>':'')+'</div>';
+      }
+      if(s.cardio && s.cardio.kesto) html+='<div class="liike"><b>'+esc(s.cardio.laji||'Cardio')+'</b> '+s.cardio.kesto+' min</div>';
+      if(s.notes) html+='<div class="liike">📝 '+esc(s.notes)+'</div>';
+      html+='</div>';
+    }
+    html+='</div>';
+
+    html+='<div class="card"><h3>Kommentit tälle viikolle</h3>';
+    if(!kommentit.length) html+='<div class="muted">Ei vielä kommentteja.</div>';
+    for(const k of kommentit){
+      html+='<div class="kommentti">'+esc(k.teksti)+'<div class="aika">'+new Date(k.created_at).toLocaleString('fi-FI')+'</div></div>';
+    }
+    html+='<textarea id="komteksti" rows="3" placeholder="Kirjoita palaute viikosta — asiakas näkee tämän sovelluksen Koti-sivulla" style="margin-top:8px"></textarea>'
+      +'<button class="primary" id="btnkom" style="margin-top:8px">Lähetä kommentti</button></div>';
+  }
+
+  $view.innerHTML=html;
+  document.getElementById('takaisin').onclick=naytaAsiakkaat;
+  document.getElementById('vprev').onclick=()=>{ viikkoMon=addDays(viikkoMon,-7); naytaAsiakas(); };
+  document.getElementById('vnext').onclick=()=>{ viikkoMon=addDays(viikkoMon,7); naytaAsiakas(); };
+  document.getElementById('tilasel').onchange=async e=>{
+    try{ await apiPatch('asiakkuudet?id=eq.'+a.asiakkuusId,{tila:e.target.value, paattyi: e.target.value==='paattynyt'?iso(new Date()):null});
+      a.tila=e.target.value; toast('Tila päivitetty ✓'); }
+    catch(err){ toast('Virhe: '+err.message); }
+  };
+  const bk=document.getElementById('btnkom');
+  if(bk) bk.onclick=async()=>{
+    const t=document.getElementById('komteksti').value.trim();
+    if(!t){ toast('Kirjoita kommentti ensin'); return; }
+    try{
+      await apiPost('comments',{valmentaja_id:sbSession.user.id, valmennettava_id:a.id, viikko:viikkoMon, teksti:t},{Prefer:'return=minimal'});
+      toast('Kommentti lähetetty ✓'); naytaAsiakas();
+    }catch(e){ toast('Virhe: '+e.message); }
+  };
+}
+
+/* ============ Käynnistys ============ */
+(async function(){
+  loadAuth(); handleAuthHash();
+  if(!sbSession){ naytaKirjautuminen(); return; }
+  const ok=await sbRefresh();
+  if(!ok){ naytaKirjautuminen('Istunto vanhentui — kirjaudu uudelleen.'); return; }
+  await sbUser();
+  if(!cloudOn()){ naytaKirjautuminen('Kirjautuminen ei onnistunut.'); return; }
+  document.getElementById('who').innerHTML=esc(sbSession.user.email)
+    +'<br><a href="#" id="ulos">Kirjaudu ulos</a>';
+  document.getElementById('ulos').onclick=e=>{ e.preventDefault(); sbSession=null; saveAuth(); location.reload(); };
+  try{
+    const p=await apiGet('profiles?select=id,nimi,rooli&id=eq.'+sbSession.user.id);
+    minaProfiili=p[0]||null;
+  }catch(e){}
+  if(!minaProfiili || minaProfiili.rooli!=='valmentaja'){ naytaEiOikeuksia(); return; }
+  naytaAsiakkaat();
+})();
+</script>
+</body>
+</html>
