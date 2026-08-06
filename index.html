@@ -546,6 +546,15 @@ async function pushCloudAll(){
   if(!cloudOn()) return;
   for(const d of Object.keys(state.sessions)) await pushDay(d);
 }
+/* Valmentajan kommentit Koti-sivulle */
+let valmentajanKommentit=[];
+async function pullKommentit(){
+  if(!cloudOn()) return;
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/comments?select=viikko,teksti,created_at&valmennettava_id=eq.'+sbSession.user.id+'&order=created_at.desc&limit=5',{headers:sbHeaders()});
+    if(r.ok) valmentajanKommentit=await r.json();
+  }catch(e){}
+}
 async function cloudBoot(){
   loadAuth(); handleAuthHash();
   if(!sbSession) return;
@@ -553,6 +562,9 @@ async function cloudBoot(){
   if(!ok){ render(); return; }
   await sbUser();
   if(cloudOn()){
+    /* Lunasta mahdollinen valmentajan kutsu (kytkös syntyy automaattisesti) */
+    try{ await fetch(SB_URL+'/rest/v1/rpc/lunasta_kutsut',{method:'POST',headers:sbHeaders(),body:'{}'}); }catch(e){}
+    await pullKommentit();
     await pullCloud();
     await pushCloudAll();
     syncMsg='Synkattu ✓';
@@ -752,6 +764,13 @@ function renderHome(){
     +'<a class="btn-ghost" href="'+kysyHref()+'">💬 Kysy valmentajalta</a>'
     +'<a class="btn-ghost" href="'+COACH.ig+'" target="_blank" rel="noopener">📸 Seuraa Instagramissa · @norringkia</a>'
     +'</div></div>';
+
+  if(valmentajanKommentit.length){
+    html+='<div class="card"><h3 style="font-size:17px">💬 Valmentajan palaute</h3>'
+      +valmentajanKommentit.map(k=>'<div style="background:var(--surface2);border-radius:10px;padding:10px 12px;margin-top:8px">'+esc(k.teksti)
+        +'<div class="muted" style="font-size:11px;margin-top:4px">Viikko '+fmtFi(k.viikko)+'–'+fmtFi(addDays(k.viikko,6))+'</div></div>').join('')
+      +'</div>';
+  }
 
   if(state.ohjelma && state.ohjelma.ravinto){
     html+='<div class="card"><h3 style="font-size:17px">🥗 Valmentajan ravinto-ohje sinulle</h3>'
