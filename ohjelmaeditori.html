@@ -88,6 +88,8 @@
     <button class="btn sivu" id="esitayta">Esitäytä pohjalla</button>
     <button class="btn paa" id="luolinkki">Luo asennuslinkki →</button>
     <button class="btn sivu" id="lataa">Lataa JSON</button>
+    <button class="btn sivu" id="tuo">Tuo JSON</button>
+    <input type="file" id="tuofile" accept=".json,application/json" style="display:none">
   </div>
   <div id="tulos">
     <label>Asennuslinkki — lähetä tämä asiakkaalle (WhatsApp/sähköposti). Linkin avaus asentaa ohjelman.</label>
@@ -331,6 +333,28 @@ document.getElementById('lataa').onclick = () => {
   a.href = URL.createObjectURL(blob);
   a.download = (out.nimi || 'ohjelma').toLowerCase().replace(/[^a-z0-9äöå]+/g,'-') + '-ohjelma.json';
   a.click(); URL.revokeObjectURL(a.href);
+};
+
+/* Tuo aiemmin tallennettu ohjelma-JSON takaisin muokattavaksi */
+document.getElementById('tuo').onclick = () => document.getElementById('tuofile').click();
+document.getElementById('tuofile').onchange = e => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      const obj = JSON.parse(rd.result);
+      if (!obj || !obj.paivat || !obj.paivat.ma) throw new Error('rakenne');
+      vahvista('Avataanko ohjelma "' + (obj.nimi || f.name) + '"?\n\nNykyinen muokkaus korvautuu.', 'Avaa muokattavaksi').then(ok => {
+        if (!ok) return;
+        ohjelma = { nimi: obj.nimi || '', laatija: obj.laatija || 'Kia Norring', ravinto: obj.ravinto || '', paivat: obj.paivat };
+        talleta(); piirra();
+        ilmoita('Ohjelma "' + (obj.nimi || f.name) + '" avattu — muokkaa ja luo uusi asennuslinkki.');
+      });
+    } catch (err) { ilmoita('Tiedosto ei kelpaa — tarkista että se on editorin tallentama ohjelma-JSON.', true); }
+  };
+  rd.readAsText(f);
 };
 
 piirra();
