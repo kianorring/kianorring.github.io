@@ -220,6 +220,17 @@
   #paivitysbanneri .pb-sulje{
     background:none;border:0;color:var(--muted);font-size:16px;cursor:pointer;padding:4px 6px;
   }
+  .vahvista-tausta{
+    position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60;
+    display:flex;align-items:center;justify-content:center;padding:20px;
+  }
+  .vahvista-kortti{
+    background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    padding:18px;max-width:420px;width:100%;font-size:15px;
+    box-shadow:0 8px 32px rgba(0,0,0,.5);
+  }
+  .vahvista-napit{display:flex;gap:10px;justify-content:flex-end;margin-top:14px}
+  .vahvista-napit button{width:auto;padding:9px 16px}
   .deload-banner{
     background:rgba(76,201,192,.12);border:1px solid var(--teal);border-radius:var(--radius);
     padding:10px 14px;margin:10px 0;font-size:14px;color:var(--teal);
@@ -412,12 +423,14 @@ function tarkistaOhjelmaLinkki(){
     if(!obj || !obj.paivat || !obj.paivat.ma) throw new Error('rakenne');
     history.replaceState(null,'',location.pathname+location.search);
     const nimi = obj.nimi || 'uusi ohjelma';
-    if(confirm('Valmentajalta saapui treeniohjelma: "'+nimi+'".\n\nOtetaanko se käyttöön? Aiemmat kirjauksesi säilyvät.')){
+    vahvista('Valmentajalta saapui treeniohjelma: "'+nimi+'".\n\nOtetaanko se käyttöön? Aiemmat kirjauksesi säilyvät.','Ota käyttöön').then(ok=>{
+      if(!ok) return;
       state.ohjelma = obj;
       PROGRAM = obj.paivat;
       localStorage.setItem(KEY, JSON.stringify(state));
       toast('Ohjelma "'+nimi+'" käytössä ✓');
-    }
+      render();
+    });
   }catch(e){ toast('Ohjelmalinkin luku epäonnistui — pyydä valmentajalta uusi linkki.'); }
 }
 
@@ -434,6 +447,20 @@ function toast(msg){
   const t=document.getElementById('toast');
   t.textContent=msg; t.classList.add('show');
   clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),1400);
+}
+/* Oma vahvistusmodaali confirm():n tilalle — selaimen dialogit eivät näy
+   iOS:n Koti-valikkoon asennetussa sovelluksessa (standalone-tila). */
+function vahvista(viesti, hyvaksyTeksti){
+  return new Promise(res=>{
+    const o=document.createElement('div');
+    o.className='vahvista-tausta';
+    o.innerHTML='<div class="vahvista-kortti"><div style="white-space:pre-wrap">'+esc(viesti)+'</div>'
+      +'<div class="vahvista-napit"><button class="ghost" data-ei>Peruuta</button>'
+      +'<button class="primary" data-ok>'+esc(hyvaksyTeksti||'OK')+'</button></div></div>';
+    document.body.appendChild(o);
+    o.querySelector('[data-ok]').onclick=()=>{ o.remove(); res(true); };
+    o.querySelector('[data-ei]').onclick=()=>{ o.remove(); res(false); };
+  });
 }
 
 /* ============================== VALMENTAJAYHTEYS ============================== */
@@ -1257,11 +1284,12 @@ function renderSettings(){
 
   const bpo=document.getElementById('btnoletusohjelma');
   if(bpo) bpo.onclick=()=>{
-    if(confirm('Palautetaanko perusohjelma? Kirjauksesi säilyvät.')){
+    vahvista('Palautetaanko perusohjelma? Kirjauksesi säilyvät.','Palauta').then(ok=>{
+      if(!ok) return;
       delete state.ohjelma;
       PROGRAM = DEFAULT_PROGRAM;
       save(); render();
-    }
+    });
   };
 
   document.getElementById('setstart').onchange=e=>{
@@ -1293,11 +1321,12 @@ function renderSettings(){
     rd.readAsText(f);
   };
   document.getElementById('btnreset').onclick=()=>{
-    if(confirm('Poistetaanko kaikki kirjaukset pysyvästi tästä selaimesta?')){
+    vahvista('Poistetaanko kaikki kirjaukset pysyvästi tästä selaimesta?','Poista kaikki').then(ok=>{
+      if(!ok) return;
       state={ start: iso(mondayOf(new Date())), deloadEvery:4, sessions:{}, defaults:{}, prs:{} };
       localStorage.setItem(KEY, JSON.stringify(state));
       toast('Tiedot tyhjennetty'); render();
-    }
+    });
   };
 }
 
