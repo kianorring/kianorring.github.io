@@ -133,6 +133,22 @@ function tyhja(){
 }
 function talleta(){ localStorage.setItem(EKEY, JSON.stringify(ohjelma)); }
 function esc(s){ return String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+/* Oma vahvistusmodaali confirm():n tilalle — selaimen dialogit eivät näy
+   iOS:n Koti-valikkoon asennetussa sovelluksessa (standalone-tila). */
+function vahvista(viesti, hyvaksyTeksti){
+  return new Promise(res=>{
+    const o=document.createElement('div');
+    o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px';
+    o.innerHTML='<div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;max-width:420px;width:100%;font-size:15px;box-shadow:0 8px 32px rgba(0,0,0,.5)">'
+      +'<div style="white-space:pre-wrap">'+esc(viesti)+'</div>'
+      +'<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">'
+      +'<button class="btn sivu" data-ei>Peruuta</button>'
+      +'<button class="btn paa" data-ok>'+esc(hyvaksyTeksti||'OK')+'</button></div></div>';
+    document.body.appendChild(o);
+    o.querySelector('[data-ok]').onclick=()=>{ o.remove(); res(true); };
+    o.querySelector('[data-ei]').onclick=()=>{ o.remove(); res(false); };
+  });
+}
 
 function piirra(){
   document.getElementById('onimi').value = ohjelma.nimi || '';
@@ -235,11 +251,14 @@ document.getElementById('esitayta').onclick = () => {
   const valinta = document.getElementById('pohjasel').value;
   const pohja = POHJAT[valinta];
   if (!pohja) return;
-  if (!confirm('Korvataanko nykyinen muokkaus pohjalla "' + pohja.label + '"?')) return;
-  const paivat = pohja.paivat === '__PERUS__' ? POHJA : pohja.paivat;
-  ohjelma.paivat = JSON.parse(JSON.stringify(paivat));
-  ohjelma.ravinto = pohja.ravinto || '';
-  talleta(); piirra();
+  vahvista('Korvataanko nykyinen muokkaus pohjalla "' + pohja.label + '"?','Korvaa pohjalla').then(ok => {
+    if (!ok) return;
+    const paivat = pohja.paivat === '__PERUS__' ? POHJA : pohja.paivat;
+    ohjelma.paivat = JSON.parse(JSON.stringify(paivat));
+    ohjelma.ravinto = pohja.ravinto || '';
+    talleta(); piirra();
+    ilmoita('Pohja "' + pohja.label + '" ladattu — muokkaa vapaasti ja luo asennuslinkki.');
+  });
 };
 
 function viimeistele(){
