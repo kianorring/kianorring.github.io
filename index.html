@@ -573,6 +573,24 @@ async function pushCloudAll(){
   if(!cloudOn()) return;
   for(const d of Object.keys(state.sessions)) await pushDay(d);
 }
+/* Valmentajan pilvestä jakama ohjelma: haetaan käynnistyksessä ja otetaan
+   käyttöön, jos jako tai ohjelman sisältö on muuttunut edellisestä. */
+async function pullOhjelma(){
+  if(!cloudOn()) return;
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/rpc/oma_ohjelma',{method:'POST',headers:sbHeaders(),body:'{}'});
+    if(!r.ok) return;
+    const o=await r.json();
+    if(!o || !o.data || !o.data.paivat) return;
+    const aika=(o.paivitetty||'')+'|'+(o.jaettu||'');
+    if(state.ohjelmaPilviAika===aika) return;
+    state.ohjelma=o.data;
+    state.ohjelmaPilviAika=aika;
+    PROGRAM=o.data.paivat;
+    localStorage.setItem(KEY, JSON.stringify(state));
+    toast('Valmentajan ohjelma "'+(o.data.nimi||o.nimi)+'" käytössä ✓');
+  }catch(e){}
+}
 /* Valmentajan kommentit Koti-sivulle */
 let valmentajanKommentit=[];
 async function pullKommentit(){
@@ -591,6 +609,7 @@ async function cloudBoot(){
   if(cloudOn()){
     /* Lunasta mahdollinen valmentajan kutsu (kytkös syntyy automaattisesti) */
     try{ await fetch(SB_URL+'/rest/v1/rpc/lunasta_kutsut',{method:'POST',headers:sbHeaders(),body:'{}'}); }catch(e){}
+    await pullOhjelma();
     await pullKommentit();
     await pullCloud();
     await pushCloudAll();
