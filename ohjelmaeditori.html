@@ -85,6 +85,7 @@
       <option value="painonhallinta">Painonhallinta — sali 2× + cardio 2×</option>
       <option value="jako3">Kuntoilija — 3-jakoinen (ala/ylä/koko)</option>
     </select>
+    <button class="btn sivu" id="uusi">Uusi ohjelma</button>
     <button class="btn sivu" id="esitayta">Esitäytä pohjalla</button>
     <button class="btn paa" id="luolinkki">Luo asennuslinkki →</button>
     <button class="btn sivu" id="lataa">Lataa JSON</button>
@@ -97,6 +98,15 @@
     <button class="btn sivu" id="kopioi" style="margin-top:8px">Kopioi linkki</button>
   </div>
   <div id="viesti" role="status"></div>
+
+  <fieldset id="arkisto" style="margin-top:24px">
+    <legend>Pilviarkisto</legend>
+    <div id="arkistotila" style="font-size:14px;color:var(--muted);margin-bottom:10px">Yhdistetään…</div>
+    <div id="arkistotoiminnot" style="display:none;margin-bottom:10px">
+      <button class="btn paa" id="arkistotallenna">Tallenna arkistoon</button>
+    </div>
+    <div id="arkistolista"></div>
+  </fieldset>
 </div>
 
 <datalist id="liikepankki">
@@ -335,6 +345,116 @@ document.getElementById('lataa').onclick = () => {
   a.click(); URL.revokeObjectURL(a.href);
 };
 
+/* ============ Pilviarkisto (Supabase) ============ */
+/* Ohjelmat tallentuvat valmentajan tunnuksen taakse. Käyttää samaa
+   kirjautumista kuin sovellus ja valmentajanäkymä (tpk_auth). */
+const SB_URL='https://iroupwdszrboyjysjjcq.supabase.co';
+const SB_KEY='sb_publishable_Ud9cZaeyQ8TRth-_ALwvmA_PBlZmzGi';
+let sbSession=null;
+
+function sbHeaders(){ return { apikey:SB_KEY, Authorization:'Bearer '+sbSession.access_token, 'Content-Type':'application/json' }; }
+async function sbKirjaudu(){
+  try{ sbSession=JSON.parse(localStorage.getItem('tpk_auth'))||null; }catch(e){ sbSession=null; }
+  if(!sbSession||!sbSession.refresh_token) return false;
+  try{
+    const r=await fetch(SB_URL+'/auth/v1/token?grant_type=refresh_token',{
+      method:'POST', headers:{apikey:SB_KEY,'Content-Type':'application/json'},
+      body:JSON.stringify({refresh_token:sbSession.refresh_token})});
+    if(!r.ok) throw new Error('refresh');
+    const j=await r.json();
+    sbSession={access_token:j.access_token, refresh_token:j.refresh_token, user:j.user};
+    localStorage.setItem('tpk_auth', JSON.stringify(sbSession));
+    return !!(sbSession.user&&sbSession.user.id);
+  }catch(e){ sbSession=null; return false; }
+}
+
+const $atila=document.getElementById('arkistotila');
+const $alista=document.getElementById('arkistolista');
+
+async function arkistoInit(){
+  const ok=await sbKirjaudu();
+  if(!ok){
+    $atila.innerHTML='Et ole kirjautunut. <a href="/valmentaja.html" style="color:var(--accent)">Kirjaudu valmentajanäkymässä</a>, niin ohjelmasi tallentuvat pilviarkistoon ja ovat käytössä kaikilla laitteillasi.';
+    return;
+  }
+  let rooli=null;
+  try{
+    const p=await (await fetch(SB_URL+'/rest/v1/profiles?select=rooli&id=eq.'+sbSession.user.id,{headers:sbHeaders()})).json();
+    rooli=p[0]&&p[0].rooli;
+  }catch(e){}
+  if(rooli!=='valmentaja'){
+    $atila.textContent='Pilviarkisto on valmentajille. Tunnuksellasi ('+(sbSession.user.email||'')+') ei ole valmentajaroolia.';
+    return;
+  }
+  $atila.textContent='Kirjautunut: '+sbSession.user.email;
+  document.getElementById('arkistotoiminnot').style.display='block';
+  arkistoLista();
+}
+
+async function arkistoLista(){
+  try{
+    const rivit=await (await fetch(SB_URL+'/rest/v1/ohjelmat?select=id,nimi,updated_at&order=updated_at.desc',{headers:sbHeaders()})).json();
+    if(!rivit.length){ $alista.innerHTML='<div style="font-size:14px;color:var(--muted)">Arkisto on tyhjä. Tallenna ensimmäinen ohjelma yllä olevasta napista.</div>'; return; }
+    $alista.innerHTML=rivit.map(r=>
+      '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)">'
+      +'<span style="flex:1"><b>'+esc(r.nimi)+'</b><br><span style="font-size:12px;color:var(--muted)">päivitetty '+new Date(r.updated_at).toLocaleString('fi-FI')+'</span></span>'
+      +'<button class="btn sivu" data-avaa="'+r.id+'">Avaa</button>'
+      +'<button class="btn sivu" data-poista="'+r.id+'" data-nimi="'+esc(r.nimi)+'">Poista</button>'
+      +'</div>').join('');
+    $alista.querySelectorAll('[data-avaa]').forEach(b=>b.onclick=()=>avaaArkistosta(b.dataset.avaa));
+    $alista.querySelectorAll('[data-poista]').forEach(b=>b.onclick=()=>poistaArkistosta(b.dataset.poista, b.dataset.nimi));
+  }catch(e){ $alista.innerHTML='<div style="font-size:14px;color:var(--muted)">Arkiston haku epäonnistui — yritä hetken päästä uudelleen.</div>'; }
+}
+
+document.getElementById('arkistotallenna').onclick=async()=>{
+  const nimi=(ohjelma.nimi||'').trim();
+  if(!nimi){ ilmoita('Anna ohjelmalle nimi ennen arkistointia.', true); return; }
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/ohjelmat?on_conflict=valmentaja_id,nimi',{
+      method:'POST',
+      headers:Object.assign(sbHeaders(),{Prefer:'resolution=merge-duplicates,return=minimal'}),
+      body:JSON.stringify({valmentaja_id:sbSession.user.id, nimi:nimi, data:ohjelma})});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    ilmoita('Ohjelma "'+nimi+'" tallennettu arkistoon ✓');
+    arkistoLista();
+  }catch(e){ ilmoita('Tallennus epäonnistui: '+e.message, true); }
+};
+
+async function avaaArkistosta(id){
+  try{
+    const rivit=await (await fetch(SB_URL+'/rest/v1/ohjelmat?select=nimi,data&id=eq.'+id,{headers:sbHeaders()})).json();
+    if(!rivit.length) return;
+    const r=rivit[0];
+    vahvista('Avataanko ohjelma "'+r.nimi+'" arkistosta?\n\nNykyinen muokkaus korvautuu.','Avaa muokattavaksi').then(ok=>{
+      if(!ok) return;
+      ohjelma={ nimi:r.data.nimi||r.nimi, laatija:r.data.laatija||'Kia Norring', ravinto:r.data.ravinto||'', paivat:r.data.paivat };
+      talleta(); piirra();
+      ilmoita('Ohjelma "'+r.nimi+'" avattu arkistosta.');
+    });
+  }catch(e){ ilmoita('Avaus epäonnistui: '+e.message, true); }
+}
+
+async function poistaArkistosta(id, nimi){
+  const ok=await vahvista('Poistetaanko "'+nimi+'" arkistosta pysyvästi?','Poista');
+  if(!ok) return;
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/ohjelmat?id=eq.'+id,{method:'DELETE',headers:sbHeaders()});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    ilmoita('Ohjelma "'+nimi+'" poistettu arkistosta.');
+    arkistoLista();
+  }catch(e){ ilmoita('Poisto epäonnistui: '+e.message, true); }
+}
+
+/* Aloita uusi ohjelma tyhjältä pöydältä */
+document.getElementById('uusi').onclick = () => {
+  vahvista('Aloitetaanko uusi tyhjä ohjelma?\n\nNykyinen muokkaus korvautuu — tallenna se ensin "Lataa JSON" -napista, jos haluat säilyttää sen.', 'Aloita uusi').then(ok => {
+    if (!ok) return;
+    ohjelma = { nimi:'', laatija:'Kia Norring', ravinto:'', paivat: tyhja() };
+    talleta(); piirra();
+    ilmoita('Uusi tyhjä ohjelma aloitettu — nimeä se ja rakenna päivät.');
+  });
+};
+
 /* Tuo aiemmin tallennettu ohjelma-JSON takaisin muokattavaksi */
 document.getElementById('tuo').onclick = () => document.getElementById('tuofile').click();
 document.getElementById('tuofile').onchange = e => {
@@ -358,6 +478,7 @@ document.getElementById('tuofile').onchange = e => {
 };
 
 piirra();
+arkistoInit();
 </script>
 </body>
 </html>
