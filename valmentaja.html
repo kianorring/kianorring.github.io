@@ -275,11 +275,14 @@ function sessioTehty(s){
 async function naytaAsiakas(){
   const a=valittu;
   const loppu=addDays(viikkoMon,6);
-  let rivit=[], kommentit=[];
+  let rivit=[], kommentit=[], ohjelmalista=[], jako=null;
   try{
     if(a.id){
       rivit=await apiGet('sessions?select=pvm,data&user_id=eq.'+a.id+'&pvm=gte.'+viikkoMon+'&pvm=lte.'+loppu+'&order=pvm');
       kommentit=await apiGet('comments?select=id,viikko,teksti,created_at&valmennettava_id=eq.'+a.id+'&viikko=eq.'+viikkoMon+'&order=created_at');
+      ohjelmalista=await apiGet('ohjelmat?select=id,nimi&order=nimi');
+      const j=await apiGet('ohjelma_jaot?select=ohjelma_id,jaettu&asiakas_id=eq.'+a.id);
+      jako=j[0]||null;
     }
   }catch(e){ toast('Lataus epäonnistui: '+e.message); }
   const perPvm=Object.fromEntries(rivit.map(r=>[r.pvm,r.data]));
@@ -302,6 +305,21 @@ async function naytaAsiakas(){
     +'<div class="muted">'+esc(a.email)+'</div>'
     +(a.id?'':'<div class="muted" style="margin-top:8px;color:var(--accent)">Odottaa ensimmäistä kirjautumista — kirjaukset näkyvät tässä heti kun asiakas aloittaa.</div>')
     +'</div>';
+
+  if(a.id){
+    const jaettuNimi = jako && (ohjelmalista.find(o=>o.id===jako.ohjelma_id)||{}).nimi;
+    html+='<div class="card"><h3>Treeniohjelma</h3>'
+      +'<div class="muted" style="margin:4px 0 10px">'+(jaettuNimi
+        ?('Käytössä: <b style="color:var(--text)">'+esc(jaettuNimi)+'</b> · jaettu '+fmtFi(jako.jaettu.slice(0,10)))
+        :'Ei pilvestä määritettyä ohjelmaa — asiakkaalla on perusohjelma tai linkillä asennettu.')+'</div>'
+      +(ohjelmalista.length
+        ? '<div class="rivi"><select id="ohjsel" style="flex:1;width:auto">'
+          +ohjelmalista.map(o=>'<option value="'+o.id+'"'+(jako&&jako.ohjelma_id===o.id?' selected':'')+'>'+esc(o.nimi)+'</option>').join('')
+          +'</select><button class="primary" id="btnjaa" style="width:auto">Määritä</button></div>'
+          +'<div class="muted" style="font-size:12px;margin-top:6px">Asiakkaan sovellus ottaa ohjelman käyttöön seuraavalla avauksella. Kun muokkaat ohjelmaa arkistossa, päivitys valuu asiakkaalle automaattisesti.</div>'
+        : '<div class="muted">Pilviarkistossa ei ole vielä ohjelmia — tallenna ensin ohjelma <a href="/ohjelmaeditori.html" style="color:var(--accent)">editorissa</a>.</div>')
+      +'</div>';
+  }
 
   html+='<div class="viikkonav"><button class="ghost" id="vprev">‹</button>'
     +'<h3>Viikko '+fmtFi(viikkoMon)+'–'+fmtFi(loppu)+'</h3>'
@@ -352,6 +370,15 @@ async function naytaAsiakas(){
     try{ await apiPatch('asiakkuudet?id=eq.'+a.asiakkuusId,{tila:e.target.value, paattyi: e.target.value==='paattynyt'?iso(new Date()):null});
       a.tila=e.target.value; toast('Tila päivitetty ✓'); }
     catch(err){ toast('Virhe: '+err.message); }
+  };
+  const bj=document.getElementById('btnjaa');
+  if(bj) bj.onclick=async()=>{
+    try{
+      await apiPost('ohjelma_jaot?on_conflict=asiakas_id',
+        {asiakas_id:a.id, ohjelma_id:+document.getElementById('ohjsel').value, jaettu:new Date().toISOString()},
+        {Prefer:'resolution=merge-duplicates,return=minimal'});
+      toast('Ohjelma määritetty ✓'); naytaAsiakas();
+    }catch(e){ toast('Virhe: '+e.message); }
   };
   const bk=document.getElementById('btnkom');
   if(bk) bk.onclick=async()=>{
