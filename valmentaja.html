@@ -196,6 +196,50 @@ function toast(msg){
   t.textContent=msg; t.classList.add('show');
   clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),1800);
 }
+/* Oma vahvistusmodaali — selaimen confirm() ei näy iOS:n asennetussa PWA:ssa */
+function vahvista(viesti, hyvaksyTeksti){
+  return new Promise(res=>{
+    const o=document.createElement('div');
+    o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px';
+    o.innerHTML='<div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;max-width:420px;width:100%;font-size:15px;box-shadow:0 8px 32px rgba(0,0,0,.5)">'
+      +'<div style="white-space:pre-wrap">'+esc(viesti)+'</div>'
+      +'<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">'
+      +'<button class="ghost" data-ei>Peruuta</button>'
+      +'<button class="primary" style="width:auto" data-ok>'+esc(hyvaksyTeksti||'OK')+'</button></div></div>';
+    document.body.appendChild(o);
+    o.querySelector('[data-ok]').onclick=()=>{ o.remove(); res(true); };
+    o.querySelector('[data-ei]').onclick=()=>{ o.remove(); res(false); };
+  });
+}
+
+/* Käyttäjähallinta (vain admin): lista + roolin vaihto napista */
+async function naytaKayttajat(){
+  const os=document.createElement('div');
+  os.innerHTML='<h2 style="margin:22px 0 4px">Käyttäjät</h2><div class="card" id="kayttajatlista"><div class="muted">Haetaan…</div></div>';
+  $view.appendChild(os);
+  const kl=document.getElementById('kayttajatlista');
+  let rivit=[];
+  try{ rivit=await apiPost('rpc/kayttajalista',{})||[]; }
+  catch(e){ kl.innerHTML='<div class="muted">Haku epäonnistui: '+esc(e.message)+'</div>'; return; }
+  kl.innerHTML=(rivit.map(k=>{
+    const oma=k.id===sbSession.user.id;
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line);flex-wrap:wrap">'
+      +'<span style="flex:1;min-width:180px"><b>'+esc(k.nimi||k.email)+'</b>'
+      +(k.on_admin?' <span class="tila" style="color:var(--teal);border-color:var(--teal)">admin</span>':'')
+      +'<br><span class="muted" style="font-size:12px">'+esc(k.email)+' · liittyi '+fmtFi(k.liittyi.slice(0,10))+'</span></span>'
+      +'<span class="tila '+(k.rooli==='valmentaja'?'aktiivinen':'')+'">'+esc(k.rooli)+'</span>'
+      +(oma?'':'<button class="ghost" style="font-size:13px;padding:6px 10px" data-rooli="'+k.id+'" data-uusi="'+(k.rooli==='valmentaja'?'valmennettava':'valmentaja')+'" data-kuka="'+esc(k.nimi||k.email)+'">'+(k.rooli==='valmentaja'?'Poista valmentajuus':'Tee valmentaja')+'</button>')
+      +'</div>';
+  }).join('')) || '<div class="muted">Ei käyttäjiä.</div>';
+  kl.querySelectorAll('[data-rooli]').forEach(b=>b.onclick=async()=>{
+    const ok=await vahvista('Vaihdetaanko käyttäjän '+b.dataset.kuka+' rooliksi "'+b.dataset.uusi+'"?','Vaihda rooli');
+    if(!ok) return;
+    try{
+      await apiPost('rpc/aseta_rooli',{kohde:b.dataset.rooli, uusi:b.dataset.uusi});
+      toast('Rooli vaihdettu ✓'); naytaAsiakkaat();
+    }catch(e){ toast('Virhe: '+e.message); }
+  });
+}
 
 /* ============ Näkymät ============ */
 let valittu=null;          /* valittu asiakas {id, nimi, email, tila, asiakkuusId} */
@@ -263,6 +307,7 @@ async function naytaAsiakkaat(){
     viikkoMon=iso(mondayOf(new Date()));
     naytaAsiakas();
   });
+  if(minaProfiili && minaProfiili.on_admin) naytaKayttajat();
 }
 
 /* Pieni trendiviiva liikkeen kehityksestä */
@@ -485,10 +530,10 @@ async function naytaAsiakas(){
     +'<br><a href="#" id="ulos">Kirjaudu ulos</a>';
   document.getElementById('ulos').onclick=e=>{ e.preventDefault(); sbSession=null; saveAuth(); location.reload(); };
   try{
-    const p=await apiGet('profiles?select=id,nimi,rooli&id=eq.'+sbSession.user.id);
+    const p=await apiGet('profiles?select=id,nimi,rooli,on_admin&id=eq.'+sbSession.user.id);
     minaProfiili=p[0]||null;
   }catch(e){}
-  if(!minaProfiili || minaProfiili.rooli!=='valmentaja'){ naytaEiOikeuksia(); return; }
+  if(!minaProfiili || (minaProfiili.rooli!=='valmentaja' && !minaProfiili.on_admin)){ naytaEiOikeuksia(); return; }
   naytaAsiakkaat();
 })();
 </script>
