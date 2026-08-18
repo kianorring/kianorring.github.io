@@ -265,6 +265,81 @@ async function naytaAsiakkaat(){
   });
 }
 
+/* Pieni trendiviiva liikkeen kehityksestä */
+function sparkline(arvot){
+  if(arvot.length<2) return '';
+  const w=110,h=26,min=Math.min(...arvot),max=Math.max(...arvot);
+  const span=(max-min)||1;
+  const pts=arvot.map((v,i)=>((i/(arvot.length-1))*w).toFixed(1)+','+((h-3)-((v-min)/span)*(h-6)).toFixed(1)).join(' ');
+  return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="flex:none"><polyline points="'+pts+'" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
+
+/* Koko historian kehitysnäkymä: liikekohtaiset trendit, viikkovolyymi, ennätykset */
+async function naytaKehitys(){
+  const a=valittu;
+  const kehto=document.getElementById('kehitys');
+  kehto.innerHTML='<div class="muted">Haetaan koko historiaa…</div>';
+  let rivit=[], prs=[];
+  try{
+    rivit=await apiGet('sessions?select=pvm,data&user_id=eq.'+a.id+'&order=pvm');
+    prs=await apiGet('prs?select=liike,paino,pvm&user_id=eq.'+a.id+'&order=pvm.desc');
+  }catch(e){ kehto.innerHTML='<div class="muted">Haku epäonnistui — yritä hetken päästä uudelleen.</div>'; return; }
+  if(!rivit.length){ kehto.innerHTML='<div class="muted">Ei vielä kirjauksia.</div>'; return; }
+
+  const liikkeet={}, sarjatViikoittain={};
+  for(const r of rivit){
+    const s=r.data;
+    let paivanSarjat=0;
+    for(const e of Object.values(s.entries||{})){
+      const st=(e.sets||[]).filter(x=>x.r!==''&&x.r!=null);
+      if(!st.length) continue;
+      paivanSarjat+=st.length;
+      const painot=st.map(x=>parseFloat(x.w)).filter(v=>v>0);
+      const arvo=painot.length?Math.max(...painot):Math.max(...st.map(x=>parseFloat(x.r)||0));
+      const yks=painot.length?'kg':'toistoa/s';
+      if(!(arvo>0)) continue;
+      (liikkeet[e.name]=liikkeet[e.name]||{yks, pisteet:[]}).pisteet.push(arvo);
+    }
+    if(paivanSarjat){
+      const ma=iso(mondayOf(fromIso(r.pvm)));
+      sarjatViikoittain[ma]=(sarjatViikoittain[ma]||0)+paivanSarjat;
+    }
+  }
+
+  let html='';
+  const tamaMa=iso(mondayOf(new Date()));
+  const viikot=[]; for(let i=7;i>=0;i--) viikot.push(addDays(tamaMa,-7*i));
+  const maxSarjat=Math.max(1,...viikot.map(v=>sarjatViikoittain[v]||0));
+  html+='<div class="muted" style="margin-bottom:4px">Sarjaa viikossa (8 vk):</div>'
+    +'<div style="display:flex;align-items:flex-end;gap:4px;margin-bottom:12px">'
+    +viikot.map(v=>{
+      const n=sarjatViikoittain[v]||0;
+      return '<div style="flex:1;text-align:center"><div style="margin:0 auto;width:70%;background:var(--accent);opacity:'+(n?'1':'0.15')+';height:'+Math.max(3,Math.round(n/maxSarjat*36))+'px;border-radius:3px 3px 0 0"></div>'
+        +'<div class="muted" style="font-size:10px;margin-top:2px">'+(n||'')+'</div><div class="muted" style="font-size:10px">'+fmtFi(v)+'</div></div>';
+    }).join('')+'</div>';
+
+  const rows=Object.entries(liikkeet).filter(([,v])=>v.pisteet.length>=2)
+    .sort((x,y)=>y[1].pisteet.length-x[1].pisteet.length).slice(0,15);
+  if(rows.length){
+    html+='<div class="muted" style="margin-bottom:2px">Liikekohtainen kehitys (paras sarja/kerta):</div>';
+    for(const [nimi,v] of rows){
+      const eka=v.pisteet[0], vika=v.pisteet[v.pisteet.length-1];
+      const ero=Math.round((vika-eka)*10)/10;
+      const eroTxt=ero===0?'ennallaan':((ero>0?'+':'')+ero+' '+v.yks+(v.yks==='kg'&&eka>0?' ('+(ero>0?'+':'')+Math.round(ero/eka*100)+'%)':''));
+      html+='<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)">'
+        +'<span style="flex:1;min-width:0"><b>'+esc(nimi)+'</b><br><span class="muted" style="font-size:12px">'
+        +v.pisteet.length+' kirjausta · '+eka+' → '+vika+' '+v.yks+' · <span style="color:'+(ero>0?'var(--ok)':ero<0?'var(--varo)':'var(--muted)')+'">'+eroTxt+'</span></span></span>'
+        +sparkline(v.pisteet.slice(-14))+'</div>';
+    }
+  } else html+='<div class="muted">Liikekohtaista kehitystä ei vielä ehdi näkyä — tarvitaan vähintään kaksi kirjausta samasta liikkeestä.</div>';
+
+  if(prs.length){
+    html+='<div class="muted" style="margin:12px 0 2px">Testatut ennätykset (1RM):</div>'
+      +prs.slice(0,10).map(p=>'<div style="padding:6px 0;border-top:1px solid var(--line)"><b>'+esc(p.liike)+'</b> '+p.paino+' kg <span class="muted" style="font-size:12px">· '+fmtFi(p.pvm)+'</span></div>').join('');
+  }
+  kehto.innerHTML=html;
+}
+
 function sessioTehty(s){
   if(!s) return false;
   if(s.done) return true;
@@ -319,6 +394,11 @@ async function naytaAsiakas(){
           +'<div class="muted" style="font-size:12px;margin-top:6px">Asiakkaan sovellus ottaa ohjelman käyttöön seuraavalla avauksella. Kun muokkaat ohjelmaa arkistossa, päivitys valuu asiakkaalle automaattisesti.</div>'
         : '<div class="muted">Pilviarkistossa ei ole vielä ohjelmia — tallenna ensin ohjelma <a href="/ohjelmaeditori.html" style="color:var(--accent)">editorissa</a>.</div>')
       +'</div>';
+
+    html+='<div class="card"><h3>📈 Kehitys</h3>'
+      +'<div class="muted" style="margin:4px 0 8px">Koko historian liikekohtaiset trendit, viikkovolyymi ja ennätykset — ohjelman säätöä varten.</div>'
+      +'<button class="ghost" id="btnkehitys">Näytä kehitys</button>'
+      +'<div id="kehitys" style="margin-top:8px"></div></div>';
   }
 
   html+='<div class="viikkonav"><button class="ghost" id="vprev">‹</button>'
@@ -371,6 +451,8 @@ async function naytaAsiakas(){
       a.tila=e.target.value; toast('Tila päivitetty ✓'); }
     catch(err){ toast('Virhe: '+err.message); }
   };
+  const bkeh=document.getElementById('btnkehitys');
+  if(bkeh) bkeh.onclick=()=>{ bkeh.style.display='none'; naytaKehitys(); };
   const bj=document.getElementById('btnjaa');
   if(bj) bj.onclick=async()=>{
     try{
