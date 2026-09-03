@@ -302,8 +302,8 @@ async function naytaAsiakkaat(){
   $view.innerHTML=html;
 
   document.getElementById('btnkutsu').onclick=async()=>{
-    const em=document.getElementById('kutsuemail').value.trim().toLowerCase();
-    if(!em||!em.includes('@')){ toast('Tarkista sähköposti'); return; }
+    const em=document.getElementById('kutsuemail').value.trim().toLowerCase().replace(/^mailto:/,'');
+    if(!em||!em.includes('@')||/\s/.test(em)){ toast('Tarkista sähköposti'); return; }
     try{
       await apiPost('asiakkuudet',{valmentaja_id:sbSession.user.id, email:em},{Prefer:'return=minimal'});
     }catch(e){ toast(e.message.includes('duplicate')?'Tällä osoitteella on jo kutsu':('Virhe: '+e.message)); return; }
