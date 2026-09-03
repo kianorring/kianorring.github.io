@@ -140,6 +140,14 @@ async function sbSendLink(email){
     body:JSON.stringify({email:email, create_user:true})});
   if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.msg||j.error_description||('HTTP '+r.status)); }
 }
+/* Asiakkaan kirjautumislinkki ohjaa SOVELLUKSEEN (ei valmentajanäkymään) —
+   avaus kirjaa sisään, lunastaa kutsun ja käynnistää pilvisynkan. */
+async function lahetaAsiakaslinkki(email){
+  const r=await fetch(SB_URL+'/auth/v1/otp?redirect_to='+encodeURIComponent(location.origin+'/'),{
+    method:'POST', headers:{apikey:SB_KEY,'Content-Type':'application/json'},
+    body:JSON.stringify({email:email, create_user:true})});
+  if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.msg||j.error_description||('HTTP '+r.status)); }
+}
 async function sbRefresh(){
   if(!sbSession||!sbSession.refresh_token) return false;
   try{
@@ -279,7 +287,7 @@ async function naytaAsiakkaat(){
   const nimet=Object.fromEntries(profiilit.map(p=>[p.id,p.nimi]));
 
   let html='<div class="card"><h2>Kutsu uusi asiakas</h2>'
-    +'<div class="muted" style="margin:4px 0 10px">Syötä asiakkaan sähköposti. Kun asiakas kirjautuu sovellukseen samalla osoitteella, hän liittyy sinulle automaattisesti.</div>'
+    +'<div class="muted" style="margin:4px 0 10px">Syötä asiakkaan sähköposti — asiakas saa heti kirjautumislinkin sovellukseen, ja linkin avaus liittää hänet sinulle automaattisesti.</div>'
     +'<div class="rivi"><input type="email" id="kutsuemail" placeholder="asiakkaan sähköposti" style="flex:1;min-width:200px">'
     +'<button class="primary" id="btnkutsu" style="width:auto">Kutsu</button></div></div>';
 
@@ -298,8 +306,12 @@ async function naytaAsiakkaat(){
     if(!em||!em.includes('@')){ toast('Tarkista sähköposti'); return; }
     try{
       await apiPost('asiakkuudet',{valmentaja_id:sbSession.user.id, email:em},{Prefer:'return=minimal'});
-      toast('Kutsu tallennettu ✓'); naytaAsiakkaat();
-    }catch(e){ toast(e.message.includes('duplicate')?'Tällä osoitteella on jo kutsu':('Virhe: '+e.message)); }
+    }catch(e){ toast(e.message.includes('duplicate')?'Tällä osoitteella on jo kutsu':('Virhe: '+e.message)); return; }
+    try{
+      await lahetaAsiakaslinkki(em);
+      toast('Kutsu tallennettu ja kirjautumislinkki lähetetty ✓');
+    }catch(e){ toast('Kutsu tallennettu, mutta linkin lähetys epäonnistui: '+e.message); }
+    naytaAsiakkaat();
   };
   $view.querySelectorAll('.asiakas').forEach(b=>b.onclick=()=>{
     const a=asiakkuudet.find(x=>String(x.id)===b.dataset.id);
@@ -423,7 +435,8 @@ async function naytaAsiakas(){
     +['kutsuttu','aktiivinen','tauolla','paattynyt'].map(t=>'<option'+(t===a.tila?' selected':'')+'>'+t+'</option>').join('')
     +'</select></div>'
     +'<div class="muted">'+esc(a.email)+'</div>'
-    +(a.id?'':'<div class="muted" style="margin-top:8px;color:var(--accent)">Odottaa ensimmäistä kirjautumista — kirjaukset näkyvät tässä heti kun asiakas aloittaa.</div>')
+    +(a.id?'':'<div class="muted" style="margin-top:8px;color:var(--accent)">Odottaa, että asiakas avaa sähköpostiinsa lähetetyn kirjautumislinkin — kirjaukset näkyvät tässä heti kun hän aloittaa.</div>')
+    +'<button class="ghost" id="btnlahetalinkki" style="margin-top:10px;font-size:13px;padding:7px 12px">📧 Lähetä kirjautumislinkki asiakkaalle</button>'
     +'</div>';
 
   if(a.id){
@@ -491,6 +504,13 @@ async function naytaAsiakas(){
   document.getElementById('takaisin').onclick=naytaAsiakkaat;
   document.getElementById('vprev').onclick=()=>{ viikkoMon=addDays(viikkoMon,-7); naytaAsiakas(); };
   document.getElementById('vnext').onclick=()=>{ viikkoMon=addDays(viikkoMon,7); naytaAsiakas(); };
+  const bl=document.getElementById('btnlahetalinkki');
+  if(bl) bl.onclick=async()=>{
+    bl.disabled=true;
+    try{ await lahetaAsiakaslinkki(a.email); toast('Kirjautumislinkki lähetetty asiakkaalle ✓'); }
+    catch(e){ toast('Lähetys epäonnistui: '+e.message); }
+    bl.disabled=false;
+  };
   document.getElementById('tilasel').onchange=async e=>{
     try{ await apiPatch('asiakkuudet?id=eq.'+a.asiakkuusId,{tila:e.target.value, paattyi: e.target.value==='paattynyt'?iso(new Date()):null});
       a.tila=e.target.value; toast('Tila päivitetty ✓'); }
