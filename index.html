@@ -133,6 +133,13 @@
   .unit{color:var(--muted);font-size:12px;padding:0 8px 0 4px}
   .addset{background:none;border:1px dashed var(--line);color:var(--muted);border-radius:8px;
     padding:5px 12px;font-size:13px;cursor:pointer}
+  .sets td.delcell{width:34px;text-align:center;padding:0}
+  .sets .delset{background:none;border:0;color:var(--muted);font-size:16px;line-height:1;
+    cursor:pointer;padding:6px 8px}
+  .sets .delset:active{color:var(--f-eraskas)}
+  .synk-ok{font-size:13px;color:var(--f-kevyt);margin:0 0 10px}
+  .synk-varo{background:rgba(255,180,84,.12);border:1px solid var(--accent);
+    border-radius:var(--radius);padding:14px;margin:0 0 12px}
   /* ---------- feel chips ---------- */
   .feels{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
   .feels button{
@@ -495,6 +502,10 @@ const SB_URL='https://iroupwdszrboyjysjjcq.supabase.co';
 const SB_KEY='sb_publishable_Ud9cZaeyQ8TRth-_ALwvmA_PBlZmzGi';
 let sbSession=null;
 let syncMsg='';
+/* Synkkatila Koti-sivun banneria varten:
+   'paalla' = kirjautunut ja synkkaa · 'ei' = ei kirjautunut (data vain laitteessa)
+   'vanhentunut' = istunto vanheni, pitää kirjautua uudelleen · 'tarkistetaan' = cloudBoot kesken */
+let synkkaTila = (function(){ try{ return localStorage.getItem('tpk_auth') ? 'tarkistetaan' : 'ei'; }catch(e){ return 'ei'; } })();
 
 function loadAuth(){ try{ sbSession=JSON.parse(localStorage.getItem('tpk_auth'))||null; }catch(e){ sbSession=null; } }
 function saveAuth(){ if(sbSession) localStorage.setItem('tpk_auth', JSON.stringify(sbSession)); else localStorage.removeItem('tpk_auth'); }
@@ -602,9 +613,9 @@ async function pullKommentit(){
 }
 async function cloudBoot(){
   loadAuth(); handleAuthHash();
-  if(!sbSession) return;
+  if(!sbSession){ synkkaTila='ei'; return; }
   const ok=await sbRefresh();
-  if(!ok){ render(); return; }
+  if(!ok){ synkkaTila='vanhentunut'; render(); return; }
   await sbUser();
   if(cloudOn()){
     /* Lunasta mahdollinen valmentajan kutsu (kytkös syntyy automaattisesti) */
@@ -613,10 +624,10 @@ async function cloudBoot(){
     await pullKommentit();
     await pullCloud();
     await pushCloudAll();
-    syncMsg='Synkattu ✓';
+    synkkaTila='paalla'; syncMsg='Synkattu ✓';
     render();
     toast('Pilvisynkronointi päällä ✓');
-  }
+  } else { synkkaTila='vanhentunut'; render(); }
 }
 
 function weekNum(dateIso){
@@ -770,6 +781,21 @@ function asennusVihjeHtml(){
 }
 
 /* ---------- KOTI ---------- */
+/* Synkkatilan banneri Koti-sivun ylälaitaan — tekee näkyväksi jos treenit
+   eivät tallennu pilveen (valmentaja ei silloin näe niitä). */
+function synkkaBanneriHtml(){
+  if(cloudOn()) return '<div class="synk-ok">☁️ Pilvisynkronointi päällä — valmentajasi näkee treenisi.</div>';
+  if(synkkaTila==='tarkistetaan') return '<div class="synk-ok" style="color:var(--muted)">☁️ Yhdistetään pilveen…</div>';
+  const otsikko = synkkaTila==='vanhentunut' ? '⚠️ Kirjautuminen vanheni' : '⚠️ Treenisi eivät tallennu pilveen';
+  const teksti = synkkaTila==='vanhentunut'
+    ? 'Istuntosi vanheni, eivätkä treenit juuri nyt tallennu pilveen — valmentajasi ei näe uusia kirjauksia. Kirjaudu uudelleen sähköpostillasi.'
+    : 'Treenisi tallentuvat vain tähän laitteeseen, eikä valmentajasi näe niitä. Kirjaudu sähköpostillasi, niin ne synkronoituvat automaattisesti — myös aiemmat kirjauksesi.';
+  return '<div class="synk-varo"><div style="font-weight:600;margin-bottom:4px">'+otsikko+'</div>'
+    +'<div class="muted" style="margin-bottom:10px">'+teksti+'</div>'
+    +'<input type="email" id="kotimail" autocomplete="email" placeholder="oma@sahkoposti.fi" style="margin-bottom:8px">'
+    +'<button class="primary" id="btnkotilogin" style="width:100%">Lähetä kirjautumislinkki</button></div>';
+}
+
 function renderHome(){
   const mon=iso(mondayOf(new Date()));
   const lastMon=addDays(mon,-7);
@@ -786,7 +812,8 @@ function renderHome(){
   else if(total>0) msg='Tervetuloa takaisin! Paras hetki jatkaa on tänään 💪';
   else msg='Tervetuloa! Aloita ensimmäinen treenisi Viikko-välilehdeltä 💪';
 
-  let html='<div class="dayhead"><h2>Tervetuloa</h2></div>'
+  let html=synkkaBanneriHtml()
+    +'<div class="dayhead"><h2>Tervetuloa</h2></div>'
     +'<div class="card"><div style="font-size:16px;font-weight:600">'+esc(msg)+'</div>'
     +'<div class="statgrid">'
     +statBox(ws.done,'treeniä viime viikolla')
@@ -870,6 +897,14 @@ function renderHome(){
   if(ba) ba.onclick=async()=>{ if(!asennusKehote) return; asennusKehote.prompt(); await asennusKehote.userChoice; asennusKehote=null; render(true); };
   const bv=document.getElementById('btnvihjepois');
   if(bv) bv.onclick=()=>{ localStorage.setItem('knt_asennusvihje_piilotettu','1'); render(true); };
+  const bk=document.getElementById('btnkotilogin');
+  if(bk) bk.onclick=async()=>{
+    const em=(document.getElementById('kotimail').value||'').trim();
+    if(!em||em.indexOf('@')<1){ toast('Anna sähköpostiosoite'); return; }
+    bk.disabled=true; bk.textContent='Lähetetään…';
+    try{ await sbSendLink(em); toast('Linkki lähetetty — tarkista sähköposti 📧'); bk.textContent='Linkki lähetetty ✓ — avaa se tällä laitteella'; }
+    catch(e){ toast('Lähetys epäonnistui: '+e.message); bk.disabled=false; bk.textContent='Lähetä kirjautumislinkki'; }
+  };
 }
 
 /* ---------- VIIKKO ---------- */
@@ -992,7 +1027,9 @@ function renderWorkout(){
           +(ex.maxSet&&ex.unit==='sek'
             ? '<td></td>'
             : '<td><input type="text" class="num" inputmode="decimal" autocomplete="off" enterkeyhint="next" data-set="'+i+'" data-f="w" placeholder="'+wPh+'" value="'+(st.w??'')+'"><span class="unit">kg</span></td>')
-          +'<td><input type="number" inputmode="numeric" step="1" min="0" enterkeyhint="done" data-set="'+i+'" data-f="r" placeholder="'+rPh+'" value="'+(st.r??'')+'"><span class="unit">'+(ex.unit||'toistoa')+'</span></td></tr>';
+          +'<td><input type="number" inputmode="numeric" step="1" min="0" enterkeyhint="done" data-set="'+i+'" data-f="r" placeholder="'+rPh+'" value="'+(st.r??'')+'"><span class="unit">'+(ex.unit||'toistoa')+'</span></td>'
+          +(i>=ex.sets ? '<td class="delcell"><button class="delset" data-delset="'+i+'" aria-label="Poista lisäsarja" title="Poista lisäsarja">✕</button></td>' : '<td class="delcell"></td>')
+          +'</tr>';
       }
       html+='</table><button class="addset" data-addset>+ lisäsarja</button>'
         +'<div class="muted" style="margin-top:10px">Miltä tuntui?</div>'
@@ -1080,6 +1117,13 @@ function renderWorkout(){
       e.sets.push({w:'',r:''});
       save(true); render(true);
     });
+    card.querySelectorAll('[data-delset]').forEach(b=>b.addEventListener('click',()=>{
+      const e=ensureEntry(selDate,ex);
+      const idx=+b.dataset.delset;
+      if(e.sets.length<=1 || idx>=e.sets.length) return;
+      e.sets.splice(idx,1);
+      save(true); render(true);
+    }));
     card.querySelector('[data-exfeel]').querySelectorAll('button').forEach(b=>{
       b.addEventListener('click',()=>{
         const e=ensureEntry(selDate,ex);
@@ -1299,7 +1343,7 @@ function renderSettings(){
     catch(e){ toast('Lähetys epäonnistui: '+e.message); bl.disabled=false; bl.textContent='Lähetä kirjautumislinkki'; }
   };
   const bo=document.getElementById('btnlogout');
-  if(bo) bo.onclick=()=>{ sbSession=null; saveAuth(); syncMsg=''; toast('Kirjauduttu ulos'); render(); };
+  if(bo) bo.onclick=()=>{ sbSession=null; saveAuth(); syncMsg=''; synkkaTila='ei'; toast('Kirjauduttu ulos'); render(); };
 
   const bpo=document.getElementById('btnoletusohjelma');
   if(bpo) bpo.onclick=()=>{
