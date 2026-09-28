@@ -582,6 +582,35 @@ async function pushPr(liike, pr){
   try{ await fetch(SB_URL+'/rest/v1/prs',{method:'POST',headers:sbHeaders(),
     body:JSON.stringify({user_id:sbSession.user.id, liike:liike, paino:pr.w, pvm:pr.date})}); }catch(e){}
 }
+/* Jaksotus (aloitusviikko, kevennysväli, kevennysviikon siirrot syineen) pilveen —
+   valmentaja näkee asiakkaan ohjelmaviikon ja siirretyt kevennysviikot. */
+async function pushSykli(){
+  if(!cloudOn()) return;
+  try{
+    const nyt=new Date().toISOString();
+    const r=await fetch(SB_URL+'/rest/v1/treenisykli?on_conflict=user_id',{
+      method:'POST', headers:Object.assign(sbHeaders(),{Prefer:'resolution=merge-duplicates,return=minimal'}),
+      body:JSON.stringify({user_id:sbSession.user.id, alku:state.start, kevennys_vali:state.deloadEvery,
+        siirrot:state.kevennysSiirrot||[], updated_at:nyt})});
+    if(r.ok){ state.sykliPilviAika=nyt; localStorage.setItem(KEY, JSON.stringify(state)); }
+  }catch(e){}
+}
+/* Pilvestä laitteeseen: jos pilven jaksotus on uudempi kuin tältä laitteelta
+   viimeksi viety (esim. uusi laite tai selain tyhjennetty), otetaan se käyttöön. */
+async function pullSykli(){
+  if(!cloudOn()) return;
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/treenisykli?select=alku,kevennys_vali,siirrot,updated_at',{headers:sbHeaders()});
+    if(!r.ok) return;
+    const c=(await r.json())[0]; if(!c) return;
+    if(state.sykliPilviAika && Date.parse(c.updated_at)<=Date.parse(state.sykliPilviAika)) return;
+    if(c.alku) state.start=c.alku;
+    if(c.kevennys_vali) state.deloadEvery=c.kevennys_vali;
+    if(Array.isArray(c.siirrot)) state.kevennysSiirrot=c.siirrot;
+    state.sykliPilviAika=c.updated_at;
+    localStorage.setItem(KEY, JSON.stringify(state));
+  }catch(e){}
+}
 /* Pilvestä paikalliseen: täydentää puuttuvat päivät ja 1RM:t */
 async function pullCloud(){
   if(!cloudOn()) return;
@@ -639,7 +668,9 @@ async function cloudBoot(){
     await pullOhjelma();
     await pullKommentit();
     await pullCloud();
+    await pullSykli();
     await pushCloudAll();
+    await pushSykli();
     synkkaTila='paalla'; syncMsg='Synkattu ✓';
     render();
     toast('Pilvisynkronointi päällä ✓');
@@ -997,13 +1028,13 @@ function renderWeek(){
       if(!syy) return;
       state.kevennysSiirrot=state.kevennysSiirrot||[];
       state.kevennysSiirrot.push({alkup:mon, kohde:addDays(mon,dir), suunta: dir>0?'myohemmaksi':'aikaisemmaksi', syy:syy, kirjattu:new Date().toISOString()});
-      save(); toast('Kevennysviikko siirretty ✓'); render(true);
+      save(); pushSykli(); toast('Kevennysviikko siirretty ✓'); render(true);
     });
   });
   const bPeru=$view.querySelector('[data-peru]');
   if(bPeru) bPeru.onclick=()=>{
     state.kevennysSiirrot=(state.kevennysSiirrot||[]).filter(s=>s.alkup!==mon && s.kohde!==mon);
-    save(); toast('Siirto peruttu'); render(true);
+    save(); pushSykli(); toast('Siirto peruttu'); render(true);
   };
 }
 
@@ -1414,9 +1445,9 @@ function renderSettings(){
   };
 
   document.getElementById('setstart').onchange=e=>{
-    if(e.target.value){ state.start=iso(mondayOf(fromIso(e.target.value))); save(); updateTopbar(); }
+    if(e.target.value){ state.start=iso(mondayOf(fromIso(e.target.value))); save(); pushSykli(); updateTopbar(); }
   };
-  document.getElementById('setdeload').onchange=e=>{ state.deloadEvery=+e.target.value; save(); updateTopbar(); };
+  document.getElementById('setdeload').onchange=e=>{ state.deloadEvery=+e.target.value; save(); pushSykli(); updateTopbar(); };
   document.getElementById('btnexport').onclick=()=>{
     const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
     const a=document.createElement('a');
@@ -1437,7 +1468,7 @@ function renderSettings(){
         if(!state.prs) state.prs={};
         if(!state.kevennysSiirrot) state.kevennysSiirrot=[];
         localStorage.setItem(KEY, JSON.stringify(state));
-        toast('Varmuuskopio tuotu ✓'); render();
+        toast('Varmuuskopio tuotu ✓'); render(); pushSykli();
       }catch(err){ toast('Tiedosto ei kelpaa — tarkista että se on tämän sovelluksen varmuuskopio.'); }
     };
     rd.readAsText(f);
