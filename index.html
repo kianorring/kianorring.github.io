@@ -417,6 +417,7 @@ if (!state.sessions) state.sessions = {};
 if (!state.defaults) state.defaults = {};
 if (!state.deloadEvery) state.deloadEvery = 4;
 if (!state.prs) state.prs = {};
+if (!state.kevennysSiirrot) state.kevennysSiirrot = [];
 if (state.ohjelma && state.ohjelma.paivat) PROGRAM = state.ohjelma.paivat;
 
 /* Valmentajan ohjelmalinkki: #ohjelma=<base64url-JSON> */
@@ -467,6 +468,21 @@ function vahvista(viesti, hyvaksyTeksti){
     document.body.appendChild(o);
     o.querySelector('[data-ok]').onclick=()=>{ o.remove(); res(true); };
     o.querySelector('[data-ei]').onclick=()=>{ o.remove(); res(false); };
+  });
+}
+/* Tekstisyötemodaali (esim. siirron syy) — palauttaa merkkijonon tai null */
+function kysySyy(otsikko, placeholder){
+  return new Promise(res=>{
+    const o=document.createElement('div');
+    o.className='vahvista-tausta';
+    o.innerHTML='<div class="vahvista-kortti"><div style="white-space:pre-wrap;margin-bottom:10px">'+esc(otsikko)+'</div>'
+      +'<input type="text" id="syyinput" placeholder="'+esc(placeholder||'')+'" style="width:100%;font-size:16px">'
+      +'<div class="vahvista-napit" style="margin-top:14px"><button class="ghost" data-ei>Peruuta</button>'
+      +'<button class="primary" data-ok>Tallenna</button></div></div>';
+    document.body.appendChild(o);
+    const inp=o.querySelector('#syyinput'); setTimeout(()=>inp.focus(),50);
+    o.querySelector('[data-ok]').onclick=()=>{ const v=inp.value.trim(); if(!v){ inp.focus(); return; } o.remove(); res(v); };
+    o.querySelector('[data-ei]').onclick=()=>{ o.remove(); res(null); };
   });
 }
 
@@ -636,7 +652,12 @@ function weekNum(dateIso){
 }
 function isDeload(dateIso){
   const w=weekNum(dateIso);
-  return w>0 && w % state.deloadEvery === 0;
+  if(w<=0) return false;
+  const mon=iso(mondayOf(fromIso(dateIso)));
+  const sr=state.kevennysSiirrot||[];
+  if(sr.some(s=>s.kohde===mon)) return true;   /* kevennys siirretty tähän viikkoon */
+  if(sr.some(s=>s.alkup===mon)) return false;  /* kevennys siirretty pois tästä viikosta */
+  return w % state.deloadEvery === 0;
 }
 function dayKeyOf(dateIso){ return DAYS[(fromIso(dateIso).getDay()+6)%7]; }
 
@@ -908,6 +929,31 @@ function renderHome(){
 }
 
 /* ---------- VIIKKO ---------- */
+/* Kevennysviikon banneri + siirtonapit viikkonäkymään */
+function kevennysSektioHtml(mon, w){
+  const sr=state.kevennysSiirrot||[];
+  const kohdeRec=sr.find(s=>s.kohde===mon);
+  const alkupRec=sr.find(s=>s.alkup===mon);
+  const aikat = w>0 && w%state.deloadEvery===0;
+  if(kohdeRec){
+    return '<div class="deload-banner"><b>Kevennysviikko.</b> Pudota painot noin 65 %:iin, sama tekniikka ja liikelaajuus.'
+      +'<div class="muted" style="margin-top:4px">Siirretty tähän viikkoon — syy: '+esc(kohdeRec.syy)+'</div>'
+      +'<div style="margin-top:8px"><button class="ghost" data-peru>Peru siirto</button></div></div>';
+  }
+  if(alkupRec){
+    return '<div class="deload-banner" style="background:var(--surface2);border-color:var(--line);color:var(--muted)">'
+      +'Kevennysviikko siirretty '+(alkupRec.suunta==='aikaisemmaksi'?'edelliselle':'seuraavalle')+' viikolle — syy: '+esc(alkupRec.syy)
+      +'<div style="margin-top:8px"><button class="ghost" data-peru>Peru siirto</button></div></div>';
+  }
+  if(aikat){
+    return '<div class="deload-banner"><b>Kevennysviikko.</b> Pudota painot noin 65 %:iin, sama tekniikka ja liikelaajuus. Palautuminen tekee kasvun.'
+      +'<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">'
+      +'<button class="ghost" data-siirra="-7">← Siirrä edelliselle viikolle</button>'
+      +'<button class="ghost" data-siirra="7">Siirrä seuraavalle viikolle →</button></div></div>';
+  }
+  return '';
+}
+
 function renderWeek(){
   const mon=iso(mondayOf(fromIso(selDate)));
   const today=iso(new Date());
@@ -916,9 +962,7 @@ function renderWeek(){
     + '<button class="ghost" id="wprev" aria-label="Edellinen viikko">‹</button>'
     + '<h2>Viikko '+(w>0?w:'—')+' <span class="muted" style="font:400 14px -apple-system,sans-serif">'+fmtFi(mon)+'–'+fmtFi(addDays(mon,6))+'</span></h2>'
     + '<button class="ghost" id="wnext" aria-label="Seuraava viikko">›</button></div>';
-  if(isDeload(mon)){
-    html+='<div class="deload-banner"><b>Kevennysviikko.</b> Pudota painot noin 65 %:iin, sama tekniikka ja liikelaajuus. Palautuminen tekee kasvun.</div>';
-  }
+  html+=kevennysSektioHtml(mon, w);
   for(let i=0;i<7;i++){
     const d=addDays(mon,i), dk=DAYS[i];
     const s=getSession(d);
@@ -947,6 +991,20 @@ function renderWeek(){
   document.getElementById('wprev').onclick=()=>{ selDate=addDays(mon,-7); render(); };
   document.getElementById('wnext').onclick=()=>{ selDate=addDays(mon,7); render(); };
   $view.querySelectorAll('.daycard').forEach(b=>b.onclick=()=>{ selDate=b.dataset.date; tab='workout'; render(); });
+  $view.querySelectorAll('[data-siirra]').forEach(b=>b.onclick=()=>{
+    const dir=+b.dataset.siirra;
+    kysySyy('Miksi kevennysviikko siirretään?\n(esim. loma tai sairaus)').then(syy=>{
+      if(!syy) return;
+      state.kevennysSiirrot=state.kevennysSiirrot||[];
+      state.kevennysSiirrot.push({alkup:mon, kohde:addDays(mon,dir), suunta: dir>0?'myohemmaksi':'aikaisemmaksi', syy:syy, kirjattu:new Date().toISOString()});
+      save(); toast('Kevennysviikko siirretty ✓'); render(true);
+    });
+  });
+  const bPeru=$view.querySelector('[data-peru]');
+  if(bPeru) bPeru.onclick=()=>{
+    state.kevennysSiirrot=(state.kevennysSiirrot||[]).filter(s=>s.alkup!==mon && s.kohde!==mon);
+    save(); toast('Siirto peruttu'); render(true);
+  };
 }
 
 /* ---------- TREENI ---------- */
@@ -1377,6 +1435,7 @@ function renderSettings(){
         if(!state.defaults) state.defaults={};
         if(!state.deloadEvery) state.deloadEvery=4;
         if(!state.prs) state.prs={};
+        if(!state.kevennysSiirrot) state.kevennysSiirrot=[];
         localStorage.setItem(KEY, JSON.stringify(state));
         toast('Varmuuskopio tuotu ✓'); render();
       }catch(err){ toast('Tiedosto ei kelpaa — tarkista että se on tämän sovelluksen varmuuskopio.'); }
@@ -1386,7 +1445,7 @@ function renderSettings(){
   document.getElementById('btnreset').onclick=()=>{
     vahvista('Poistetaanko kaikki kirjaukset pysyvästi tästä selaimesta?','Poista kaikki').then(ok=>{
       if(!ok) return;
-      state={ start: iso(mondayOf(new Date())), deloadEvery:4, sessions:{}, defaults:{}, prs:{} };
+      state={ start: iso(mondayOf(new Date())), deloadEvery:4, sessions:{}, defaults:{}, prs:{}, kevennysSiirrot:[] };
       localStorage.setItem(KEY, JSON.stringify(state));
       toast('Tiedot tyhjennetty'); render();
     });
