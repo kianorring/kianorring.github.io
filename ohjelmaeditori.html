@@ -41,9 +41,9 @@
     padding:10px;margin:10px 0;background:var(--surface2);
   }
   .liike .rivi1{display:grid;grid-template-columns:2fr 70px 70px 70px 1.2fr;gap:8px}
-  .liike .rivi2{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px}
-  .poista{background:none;border:1px solid var(--line);color:var(--muted);border-radius:7px;
-    padding:4px 10px;font-size:12px;cursor:pointer;margin-top:8px}
+  .liike .rivi2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .poista{background:none;border:1px solid #e05a6d;color:#e05a6d;border-radius:7px;
+    padding:6px 12px;font-size:13px;cursor:pointer;margin-top:8px}
   .lisaa{background:none;border:1px dashed var(--accent);color:var(--accent);border-radius:8px;
     padding:8px 14px;font-size:13px;cursor:pointer;margin-top:6px}
   .toiminnot{position:sticky;bottom:0;background:rgba(16,19,24,.95);backdrop-filter:blur(8px);
@@ -207,8 +207,9 @@ function liikeHtml(d,i,e){
     + '<div class="rivi2" style="margin-top:8px">'
     + '<div><label>Vaihtoehtoliike 1 (valinnainen)</label><input list="liikepankki" data-ex="'+d+':'+i+'" data-k="alt1" value="'+esc(e.alts&&e.alts[0]?e.alts[0].name:'')+'"></div>'
     + '<div><label>Vaihtoehtoliike 2</label><input list="liikepankki" data-ex="'+d+':'+i+'" data-k="alt2" value="'+esc(e.alts&&e.alts[1]?e.alts[1].name:'')+'"></div>'
-    + '<div style="display:flex;align-items:flex-end"><button class="poista" data-poista="'+d+':'+i+'">Poista liike</button></div>'
-    + '</div></div>';
+    + '</div>'
+    + '<div style="text-align:right"><button class="poista" data-poistaliike="'+d+':'+i+'">🗑 Poista liike</button></div>'
+    + '</div>';
 }
 
 function sido(){
@@ -248,10 +249,14 @@ function sido(){
     ohjelma.paivat[d].ex.push({ name:'', sets:3, min:8, max:10, tip:'', alts:[] });
     talleta(); piirra();
   });
-  document.querySelectorAll('[data-poista]').forEach(b => b.onclick = () => {
-    const [d,i] = b.dataset.poista.split(':');
-    ohjelma.paivat[d].ex.splice(+i, 1);
-    talleta(); piirra();
+  document.querySelectorAll('[data-poistaliike]').forEach(b => b.onclick = () => {
+    const [d,i] = b.dataset.poistaliike.split(':');
+    const nimi = (ohjelma.paivat[d].ex[+i] && ohjelma.paivat[d].ex[+i].name) || 'tämä liike';
+    vahvista('Poistetaanko liike "'+nimi+'" ohjelmasta?','Poista liike').then(ok=>{
+      if(!ok) return;
+      ohjelma.paivat[d].ex.splice(+i, 1);
+      talleta(); piirra();
+    });
   });
 }
 
