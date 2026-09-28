@@ -91,6 +91,9 @@
   .stat span{font-size:11px;color:var(--muted)}
   .kommentti{background:var(--surface2);border-radius:10px;padding:10px 12px;margin:8px 0}
   .kommentti .aika{font-size:11px;color:var(--muted)}
+  .kevennys{background:#3a2c14;border:1px solid var(--accent);color:var(--accent);border-radius:10px;padding:10px 12px;margin:8px 0;font-size:14px}
+  .kevennys.pois{background:var(--surface2);border-color:var(--line);color:var(--muted)}
+  .siirto{padding:6px 0;border-top:1px solid var(--line);font-size:13px}
   #toast{
     position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
     background:var(--surface2);border:1px solid var(--line);color:var(--text);
@@ -397,6 +400,30 @@ async function naytaKehitys(){
   kehto.innerHTML=html;
 }
 
+/* Jaksotus: sama logiikka kuin sovelluksen weekNum/isDeload, pilven treenisykli-rivistä */
+function viikkoNro(sykli, mon){
+  if(!sykli||!sykli.alku) return 0;
+  const a=mondayOf(fromIso(sykli.alku)), b=fromIso(mon);
+  return Math.floor((b-a)/(7*864e5))+1;
+}
+function onKevennys(sykli, mon){
+  if(!sykli) return false;
+  const w=viikkoNro(sykli, mon); if(w<=0) return false;
+  const sr=sykli.siirrot||[];
+  if(sr.some(s=>s.kohde===mon)) return true;
+  if(sr.some(s=>s.alkup===mon)) return false;
+  return w%(sykli.kevennys_vali||4)===0;
+}
+function kevennysBanneri(sykli, mon){
+  if(!sykli) return '';
+  const sr=sykli.siirrot||[];
+  const tanne=sr.find(s=>s.kohde===mon), pois=sr.find(s=>s.alkup===mon);
+  if(tanne) return '<div class="kevennys"><b>KEVENNYSVIIKKO</b> — siirretty tähän viikkoon (alun perin vko '+fmtFi(tanne.alkup)+'). Syy: '+esc(tanne.syy)+'</div>';
+  if(pois) return '<div class="kevennys pois">Kevennysviikko siirretty '+(pois.suunta==='aikaisemmaksi'?'edelliselle':'seuraavalle')+' viikolle ('+fmtFi(pois.kohde)+'). Syy: '+esc(pois.syy)+'</div>';
+  if(onKevennys(sykli, mon)) return '<div class="kevennys"><b>KEVENNYSVIIKKO</b> — ohjelman mukainen (joka '+(sykli.kevennys_vali||4)+'. viikko). Painot n. 65 %.</div>';
+  return '';
+}
+
 function sessioTehty(s){
   if(!s) return false;
   if(s.done) return true;
@@ -407,9 +434,10 @@ function sessioTehty(s){
 async function naytaAsiakas(){
   const a=valittu;
   const loppu=addDays(viikkoMon,6);
-  let rivit=[], kommentit=[], ohjelmalista=[], jako=null;
+  let rivit=[], kommentit=[], ohjelmalista=[], jako=null, sykli=null;
   try{
     if(a.id){
+      try{ sykli=(await apiGet('treenisykli?select=alku,kevennys_vali,siirrot,updated_at&user_id=eq.'+a.id))[0]||null; }catch(e){}
       rivit=await apiGet('sessions?select=pvm,data&user_id=eq.'+a.id+'&pvm=gte.'+viikkoMon+'&pvm=lte.'+loppu+'&order=pvm');
       kommentit=await apiGet('comments?select=id,viikko,teksti,created_at&valmennettava_id=eq.'+a.id+'&viikko=eq.'+viikkoMon+'&order=created_at');
       ohjelmalista=await apiGet('ohjelmat?select=id,nimi&order=nimi');
@@ -457,11 +485,31 @@ async function naytaAsiakas(){
       +'<div class="muted" style="margin:4px 0 8px">Koko historian liikekohtaiset trendit, viikkovolyymi ja ennätykset — ohjelman säätöä varten.</div>'
       +'<button class="ghost" id="btnkehitys">Näytä kehitys</button>'
       +'<div id="kehitys" style="margin-top:8px"></div></div>';
+
+    /* Jaksotus: ohjelmaviikko, kevennysväli ja kevennysviikon siirrot syineen */
+    const wNyt=viikkoNro(sykli, iso(mondayOf(new Date())));
+    html+='<div class="card"><h3>🗓 Jaksotus</h3>';
+    if(!sykli){
+      html+='<div class="muted">Jaksotus ei ole vielä synkattu pilveen — asiakkaan sovellus lähettää sen seuraavalla avauksella kirjautuneena.</div>';
+    } else {
+      const sr=(sykli.siirrot||[]).slice().sort((x,y)=>String(y.kirjattu||'').localeCompare(String(x.kirjattu||'')));
+      html+='<div class="muted">Ohjelma alkoi '+fmtFi(sykli.alku)+' · kevennysviikko joka '+(sykli.kevennys_vali||4)+'. viikko'
+        +(wNyt>0?' · nyt <b style="color:var(--text)">ohjelmaviikko '+wNyt+'</b>':'')+'</div>';
+      html+='<div class="muted" style="margin-top:8px">Kevennysviikon siirrot:</div>';
+      if(!sr.length) html+='<div class="muted">Ei siirtoja.</div>';
+      for(const s of sr){
+        html+='<div class="siirto"><b>'+fmtFi(s.alkup)+' → '+fmtFi(s.kohde)+'</b> ('+(s.suunta==='aikaisemmaksi'?'aikaisemmaksi':'myöhemmäksi')+') · '+esc(s.syy)
+          +(s.kirjattu?'<div class="muted" style="font-size:11px">kirjattu '+new Date(s.kirjattu).toLocaleDateString('fi-FI')+'</div>':'')+'</div>';
+      }
+    }
+    html+='</div>';
   }
 
+  const wViikko=viikkoNro(sykli, viikkoMon);
   html+='<div class="viikkonav"><button class="ghost" id="vprev">‹</button>'
-    +'<h3>Viikko '+fmtFi(viikkoMon)+'–'+fmtFi(loppu)+'</h3>'
+    +'<h3>Viikko '+fmtFi(viikkoMon)+'–'+fmtFi(loppu)+(wViikko>0?' <span class="muted" style="font-weight:400">· ohjelmaviikko '+wViikko+'</span>':'')+'</h3>'
     +'<button class="ghost" id="vnext">›</button></div>';
+  if(a.id) html+=kevennysBanneri(sykli, viikkoMon);
 
   if(a.id){
     html+='<div class="card"><div class="statgrid">'
