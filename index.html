@@ -543,7 +543,7 @@ async function sbSendLink(email){
     body:JSON.stringify({email:email, create_user:true})});
   if(!r.ok){ const j=await r.json().catch(()=>({})); throw new Error(j.msg||j.error_description||('HTTP '+r.status)); }
 }
-/* Kirjautuminen sähköpostin 6-numeroisella koodilla — istunto syntyy juuri tähän
+/* Kirjautuminen sähköpostin sähköpostin numerokoodilla — istunto syntyy juuri tähän
    selaimeen/kuvakkeeseen. Tarvitaan, koska iPhonen Koti-valikon sovelluksella on oma
    muisti: sähköpostin linkki avautuu Safariin, ei kuvakkeeseen. */
 async function sbVerifyCode(email, code){
@@ -866,8 +866,8 @@ function synkkaBanneriHtml(){
     +'<div class="muted" style="margin-bottom:10px">'+teksti+'</div>'
     +'<input type="email" id="kotimail" autocomplete="email" placeholder="oma@sahkoposti.fi" style="margin-bottom:8px">'
     +'<button class="primary" id="btnkotilogin" style="width:100%">Lähetä kirjautumislinkki</button>'
-    +'<div class="muted" style="margin-top:10px;font-size:12px">Käytätkö Koti-valikon kuvaketta? Sähköpostin linkki avautuu Safariin, ei tähän. Syötä sen sijaan <b>viestin 6-numeroinen koodi</b> tähän:</div>'
-    +'<div style="display:flex;gap:8px;margin-top:6px"><input type="text" inputmode="numeric" autocomplete="one-time-code" id="kotikoodi" placeholder="123456" maxlength="6" style="flex:1;margin:0">'
+    +'<div class="muted" style="margin-top:10px;font-size:12px">Käytätkö Koti-valikon kuvaketta? Sähköpostin linkki avautuu Safariin, ei tähän. Syötä sen sijaan <b>viestin numerokoodi</b> tähän:</div>'
+    +'<div style="display:flex;gap:8px;margin-top:6px"><input type="text" inputmode="numeric" autocomplete="one-time-code" id="kotikoodi" placeholder="12345678" maxlength="10" style="flex:1;margin:0">'
     +'<button class="ghost" id="btnkotikoodi" style="white-space:nowrap">Kirjaudu koodilla</button></div></div>';
 }
 
@@ -985,7 +985,7 @@ function renderHome(){
     const em=(document.getElementById('kotimail').value||'').trim();
     const code=(document.getElementById('kotikoodi').value||'').trim();
     if(!em||em.indexOf('@')<1){ toast('Anna sähköpostiosoite'); return; }
-    if(!/^\d{6}$/.test(code)){ toast('Koodi on 6 numeroa'); return; }
+    if(!/^\d{6,10}$/.test(code)){ toast('Koodi on 6–10 numeroa'); return; }
     bkk.disabled=true; bkk.textContent='Tarkistetaan…';
     try{ await sbVerifyCode(em, code); }
     catch(e){ toast('Koodi ei kelpaa: '+e.message); bkk.disabled=false; bkk.textContent='Kirjaudu koodilla'; }
@@ -1435,8 +1435,8 @@ function renderSettings(){
       : '<div class="muted" style="margin-bottom:10px">Kirjaudu sähköpostilla, niin kirjaukset tallentuvat pilveen eivätkä katoa vaikka selain tyhjenisi. Saat sähköpostiisi kirjautumislinkin — <b>avaa se tällä samalla laitteella</b>.</div>'
         +'<div class="field"><label>Sähköposti</label><input type="email" id="loginmail" autocomplete="email" placeholder="oma@sahkoposti.fi"></div>'
         +'<button class="primary" id="btnlogin">Lähetä kirjautumislinkki</button>'
-        +'<div class="muted" style="margin-top:10px;font-size:12px">Koti-valikon kuvakkeessa: syötä sähköpostiviestin 6-numeroinen koodi tähän (linkki avautuisi Safariin).</div>'
-        +'<div style="display:flex;gap:8px;margin-top:6px"><input type="text" inputmode="numeric" autocomplete="one-time-code" id="asetuskoodi" placeholder="123456" maxlength="6" style="flex:1;margin:0">'
+        +'<div class="muted" style="margin-top:10px;font-size:12px">Koti-valikon kuvakkeessa: syötä sähköpostiviestin numerokoodi tähän (linkki avautuisi Safariin).</div>'
+        +'<div style="display:flex;gap:8px;margin-top:6px"><input type="text" inputmode="numeric" autocomplete="one-time-code" id="asetuskoodi" placeholder="12345678" maxlength="10" style="flex:1;margin:0">'
         +'<button class="ghost" id="btnasetuskoodi" style="white-space:nowrap">Kirjaudu koodilla</button></div>')
     +'</div>'
     +'<div class="card"><h3 style="font-size:17px">Ohjelman jaksotus</h3>'
@@ -1472,7 +1472,7 @@ function renderSettings(){
     const em=(document.getElementById('loginmail').value||'').trim();
     const code=(document.getElementById('asetuskoodi').value||'').trim();
     if(!em||em.indexOf('@')<1){ toast('Anna sähköpostiosoite'); return; }
-    if(!/^\d{6}$/.test(code)){ toast('Koodi on 6 numeroa'); return; }
+    if(!/^\d{6,10}$/.test(code)){ toast('Koodi on 6–10 numeroa'); return; }
     bak.disabled=true; bak.textContent='Tarkistetaan…';
     try{ await sbVerifyCode(em, code); }
     catch(e){ toast('Koodi ei kelpaa: '+e.message); bak.disabled=false; bak.textContent='Kirjaudu koodilla'; }
