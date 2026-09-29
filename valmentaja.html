@@ -94,6 +94,11 @@
   .kevennys{background:#3a2c14;border:1px solid var(--accent);color:var(--accent);border-radius:10px;padding:10px 12px;margin:8px 0;font-size:14px}
   .kevennys.pois{background:var(--surface2);border-color:var(--line);color:var(--muted)}
   .siirto{padding:6px 0;border-top:1px solid var(--line);font-size:13px}
+  .liike.puuttuu b{color:var(--muted)}
+  .eikirjattu{color:var(--paha)}
+  .vajaa{color:var(--varo)}
+  .liike{margin-top:4px}
+  details.ohj summary{cursor:pointer;color:var(--accent);font-size:14px;margin-top:10px}
   #toast{
     position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
     background:var(--surface2);border:1px solid var(--line);color:var(--text);
@@ -424,6 +429,34 @@ function kevennysBanneri(sykli, mon){
   return '';
 }
 
+/* Ohjelma vs. toteutunut -apurit */
+function suunTxt(x){ return x.maxSet ? (x.sets+' × max') : (x.sets+' × '+x.min+'–'+x.max); }
+function sarjaTxt(y){ return (y.w!==''&&y.w!=null?y.w+'kg':'')+'×'+y.r; }
+function kirjatut(e){ return e ? (e.sets||[]).filter(y=>y.r!==''&&y.r!=null) : []; }
+/* Viimeisin aiempi kerta, jolloin liike (ohjelman id) on kirjattu ennen annettua päivää */
+function edellinenKerta(historia, id, pv){
+  for(let i=historia.length-1;i>=0;i--){
+    const r=historia[i];
+    if(r.pvm>=pv) continue;
+    const e=(r.data.entries||{})[id], st=kirjatut(e);
+    if(st.length) return {pvm:r.pvm, nimi:e.name, txt:st.map(sarjaTxt).join(' · '), feel:e.feel};
+  }
+  return null;
+}
+function kokoOhjelmaHtml(ohj){
+  if(!ohj||!ohj.paivat) return '';
+  return '<details class="ohj"><summary>Näytä asiakkaan koko ohjelma: '+esc(ohj.nimi||'')+'</summary>'
+    +DAYS.map(dk=>{
+      const p=ohj.paivat[dk]; if(!p) return '';
+      return '<div class="paiva"><span class="pv">'+DOWFULL[dk]+' — '+esc(p.title||'')+'</span>'
+        +(p.type==='gym'
+          ? (p.ex||[]).map(x=>'<div class="liike"><b>'+esc(x.name)+'</b> '+suunTxt(x)
+              +(x.alts&&x.alts.length?' <span class="muted">· vaihtoehdot: '+x.alts.map(a=>esc(a.name)).join(', ')+'</span>':'')+'</div>').join('')
+          : '<div class="liike">'+esc(p.sub||p.type||'')+'</div>')
+        +'</div>';
+    }).join('')+'</details>';
+}
+
 function sessioTehty(s){
   if(!s) return false;
   if(s.done) return true;
@@ -434,23 +467,39 @@ function sessioTehty(s){
 async function naytaAsiakas(){
   const a=valittu;
   const loppu=addDays(viikkoMon,6);
-  let rivit=[], kommentit=[], ohjelmalista=[], jako=null, sykli=null;
+  let rivit=[], kommentit=[], ohjelmalista=[], jako=null, sykli=null, historia=[], ohj=null;
   try{
     if(a.id){
-      try{ sykli=(await apiGet('treenisykli?select=alku,kevennys_vali,siirrot,updated_at&user_id=eq.'+a.id))[0]||null; }catch(e){}
-      rivit=await apiGet('sessions?select=pvm,data&user_id=eq.'+a.id+'&pvm=gte.'+viikkoMon+'&pvm=lte.'+loppu+'&order=pvm');
+      try{ sykli=(await apiGet('treenisykli?select=alku,kevennys_vali,siirrot,updated_at,ohjelma&user_id=eq.'+a.id))[0]||null; }catch(e){}
+      /* 12 viikon historia: tämän viikon kirjaukset + "edellinen kerta" jokaiselle liikkeelle */
+      historia=await apiGet('sessions?select=pvm,data&user_id=eq.'+a.id+'&pvm=gte.'+addDays(viikkoMon,-84)+'&pvm=lte.'+loppu+'&order=pvm');
+      rivit=historia.filter(r=>r.pvm>=viikkoMon);
       kommentit=await apiGet('comments?select=id,viikko,teksti,created_at&valmennettava_id=eq.'+a.id+'&viikko=eq.'+viikkoMon+'&order=created_at');
       ohjelmalista=await apiGet('ohjelmat?select=id,nimi&order=nimi');
       const j=await apiGet('ohjelma_jaot?select=ohjelma_id,jaettu&asiakas_id=eq.'+a.id);
       jako=j[0]||null;
+      /* Asiakkaan ohjelma: ensisijaisesti se mikä sovelluksessa on oikeasti käytössä,
+         muuten pilvestä määritetty */
+      if(sykli && sykli.ohjelma && sykli.ohjelma.paivat) ohj={nimi:sykli.ohjelma.nimi, paivat:sykli.ohjelma.paivat, lahde:'sovellus'};
+      else if(jako){
+        try{ const o=(await apiGet('ohjelmat?select=nimi,data&id=eq.'+jako.ohjelma_id))[0];
+          if(o&&o.data&&o.data.paivat) ohj={nimi:o.nimi, paivat:o.data.paivat, lahde:'maaritys'}; }catch(e){}
+      }
     }
   }catch(e){ toast('Lataus epäonnistui: '+e.message); }
   const perPvm=Object.fromEntries(rivit.map(r=>[r.pvm,r.data]));
 
   /* viikon tunnusluvut */
-  let tehty=0, sarjat=0, askeleet=0, askelPv=0;
+  let tehty=0, sarjat=0, askeleet=0, askelPv=0, suunSarjat=0;
+  const tyypit={};
   for(let i=0;i<7;i++){
     const s=perPvm[addDays(viikkoMon,i)];
+    const sp=ohj&&ohj.paivat ? ohj.paivat[(s&&s.tmpl)||DAYS[i]] : null;
+    if(sp && sp.type==='gym' && !(s&&s.skipped)) suunSarjat+=(sp.ex||[]).reduce((n,x)=>n+(x.sets||0),0);
+    if(s && sp && sp.type==='gym'){
+      const n=Object.values(s.entries||{}).reduce((m,e)=>m+kirjatut(e).length,0);
+      if(n) tyypit[sp.title||'Sali']=(tyypit[sp.title||'Sali']||0)+n;
+    }
     if(!s) continue;
     if(sessioTehty(s)) tehty++;
     for(const e of Object.values(s.entries||{})) sarjat+=(e.sets||[]).filter(x=>x.r!==''&&x.r!=null).length;
@@ -479,6 +528,13 @@ async function naytaAsiakas(){
           +'</select><button class="primary" id="btnjaa" style="width:auto">Määritä</button></div>'
           +'<div class="muted" style="font-size:12px;margin-top:6px">Asiakkaan sovellus ottaa ohjelman käyttöön seuraavalla avauksella. Kun muokkaat ohjelmaa arkistossa, päivitys valuu asiakkaalle automaattisesti.</div>'
         : '<div class="muted">Pilviarkistossa ei ole vielä ohjelmia — tallenna ensin ohjelma <a href="/ohjelmaeditori.html" style="color:var(--accent)">editorissa</a>.</div>')
+      +(ohj
+        ? '<div class="muted" style="font-size:12px;margin-top:10px">'+(ohj.lahde==='sovellus'
+            ? 'Asiakkaan sovelluksessa on nyt käytössä: <b style="color:var(--text)">'+esc(ohj.nimi||'')+'</b>'
+              +(jaettuNimi && jaettuNimi!==ohj.nimi ? ' — määrittämäsi ohjelma tulee käyttöön, kun asiakas avaa sovelluksen seuraavan kerran.' : '')
+            : 'Näytetään määrittämäsi ohjelma. Asiakkaan sovellus ei ole vielä vahvistanut käyttöönottoa.')+'</div>'
+          +kokoOhjelmaHtml(ohj)
+        : '<div class="muted" style="font-size:12px;margin-top:10px">Asiakkaan ohjelmaa ei vielä tiedetä — se näkyy tässä, kun asiakas avaa päivitetyn sovelluksen kirjautuneena tai kun määrität ohjelman yllä.</div>')
       +'</div>';
 
     html+='<div class="card"><h3>📈 Kehitys</h3>'
@@ -514,24 +570,62 @@ async function naytaAsiakas(){
   if(a.id){
     html+='<div class="card"><div class="statgrid">'
       +'<div class="stat"><b>'+tehty+'</b><span>treeniä</span></div>'
-      +'<div class="stat"><b>'+sarjat+'</b><span>sarjaa</span></div>'
+      +'<div class="stat"><b>'+sarjat+(suunSarjat?'<span style="font-size:13px;color:var(--muted)"> / '+suunSarjat+'</span>':'')+'</b><span>'+(suunSarjat?'sarjaa tehty / ohjelmassa':'sarjaa')+'</span></div>'
       +'<div class="stat"><b>'+(askelPv?Math.round(askeleet/askelPv/100)/10+'k':'—')+'</b><span>askelta/pv</span></div>'
       +'<div class="stat"><b>'+rivit.length+'</b><span>kirjauspäivää</span></div>'
       +'</div>';
+    if(Object.keys(tyypit).length) html+='<div class="muted" style="font-size:13px;margin-bottom:6px">Kuormitus tällä viikolla: '
+      +Object.entries(tyypit).map(([t,n])=>'<b style="color:var(--text)">'+esc(t)+'</b> '+n+' sarjaa').join(' · ')+'</div>';
 
+    const tanaan=iso(new Date());
     for(let i=0;i<7;i++){
-      const pv=addDays(viikkoMon,i), s=perPvm[pv];
-      html+='<div class="paiva"><div class="rivi"><span class="pv">'+DOWFULL[DAYS[i]]+' '+fmtFi(pv)+'</span>';
-      if(!s){ html+='<span class="muted">— ei kirjausta</span></div></div>'; continue; }
+      const pv=addDays(viikkoMon,i), s=perPvm[pv], dk=DAYS[i];
+      const suun=ohj&&ohj.paivat ? ohj.paivat[(s&&s.tmpl)||dk] : null;
+      const sali=!!(suun && suun.type==='gym' && (suun.ex||[]).length);
+      html+='<div class="paiva"><div class="rivi"><span class="pv">'+DOWFULL[dk]+' '+fmtFi(pv)+'</span>'
+        +(suun&&suun.title?'<span class="tila">'+esc(suun.title)+'</span>':'');
+      if(s&&s.tmpl&&s.tmpl!==dk) html+='<span class="muted">siirretty treeni ('+DOWFULL[s.tmpl].toLowerCase()+')</span>';
+      if(!s){
+        html+='<span class="muted">— ei kirjausta'+(sali&&pv<tanaan?' (salipäivä)':'')+'</span></div>';
+        if(sali) html+='<div class="liike" style="opacity:.75">Ohjelmassa: '+suun.ex.map(x=>esc(x.name)+' '+suunTxt(x)).join(' · ')+'</div>';
+        html+='</div>'; continue;
+      }
       if(s.skipped){ html+='<span class="muted">⊘ '+ (SKIPN[s.skipped]||'Ohitettu') +'</span></div></div>'; continue; }
       if(s.feel) html+='<span class="feel-tag feel-'+s.feel+'">'+FEELN[s.feel]+'</span>';
       if(s.steps) html+='<span class="muted">'+s.steps+' askelta</span>';
+      const entries=s.entries||{}, nahty={};
+      if(sali){
+        const tehdyt=suun.ex.filter(x=>kirjatut(entries[x.id]).length).length;
+        html+='<span class="muted">'+tehdyt+'/'+suun.ex.length+' liikettä kirjattu</span>';
+      }
       html+='</div>';
-      for(const e of Object.values(s.entries||{})){
-        const st=(e.sets||[]).filter(x=>x.r!==''&&x.r!=null);
+      if(sali){
+        /* Ohjelman jokainen liike näkyy — myös ne, joita ei kirjattu */
+        for(const x of suun.ex){
+          nahty[x.id]=true;
+          const e=entries[x.id], st=kirjatut(e);
+          const nimi=(e&&e.name)||x.name;
+          const ed=edellinenKerta(historia, x.id, pv);
+          html+='<div class="liike'+(st.length?'':' puuttuu')+'"><b>'+esc(nimi)+'</b>'
+            +(nimi!==x.name?' <span class="muted">(vaihtoehto: '+esc(x.name)+')</span>':'')
+            +' <span class="muted">· ohjelma '+suunTxt(x)+'</span><br>'
+            +(st.length
+              ? '✓ '+st.map(sarjaTxt).join(' · ')
+                +(st.length<x.sets?' <span class="vajaa">('+st.length+'/'+x.sets+' sarjaa)</span>':'')
+                +(st.length>x.sets?' <span class="muted">(+'+(st.length-x.sets)+' lisäsarja)</span>':'')
+                +(e.feel?' <span class="feel-tag feel-'+e.feel+'">'+FEELN[e.feel]+'</span>':'')
+              : '<span class="eikirjattu">— ei kirjattu</span>')
+            +(ed?'<br><span class="muted" style="font-size:12px">Edellinen kerta '+fmtFi(ed.pvm)+(ed.nimi&&ed.nimi!==nimi?' ('+esc(ed.nimi)+')':'')+': '+ed.txt+(ed.feel?' · '+FEELN[ed.feel]:'')+'</span>':'')
+            +'</div>';
+        }
+      }
+      for(const [id,e] of Object.entries(entries)){
+        if(nahty[id]) continue;
+        const st=kirjatut(e);
         if(!st.length) continue;
-        html+='<div class="liike"><b>'+esc(e.name)+'</b> '+st.map(x=>(x.w!==''&&x.w!=null?x.w+'kg':'')+'×'+x.r).join(' · ')
-          +(e.feel?' <span class="feel-tag feel-'+e.feel+'">'+FEELN[e.feel]+'</span>':'')+'</div>';
+        html+='<div class="liike"><b>'+esc(e.name)+'</b> '+st.map(sarjaTxt).join(' · ')
+          +(e.feel?' <span class="feel-tag feel-'+e.feel+'">'+FEELN[e.feel]+'</span>':'')
+          +(sali?' <span class="muted">(ei päivän ohjelmassa)</span>':'')+'</div>';
       }
       if(s.cardio && s.cardio.kesto) html+='<div class="liike"><b>'+esc(s.cardio.laji||'Cardio')+'</b> '+s.cardio.kesto+' min</div>';
       if(s.notes) html+='<div class="liike">📝 '+esc(s.notes)+'</div>';

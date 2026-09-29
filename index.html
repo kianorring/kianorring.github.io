@@ -608,7 +608,10 @@ async function pushSykli(pakota){
     const r=await fetch(SB_URL+'/rest/v1/treenisykli?on_conflict=user_id',{
       method:'POST', headers:Object.assign(sbHeaders(),{Prefer:'resolution=merge-duplicates,return=minimal'}),
       body:JSON.stringify({user_id:sbSession.user.id, alku:state.start, kevennys_vali:state.deloadEvery,
-        siirrot:state.kevennysSiirrot||[], updated_at:nyt})});
+        siirrot:state.kevennysSiirrot||[],
+        /* käytössä oleva ohjelma valmentajalle: hän näkee mitä päivälle oli suunniteltu */
+        ohjelma:{nimi:(state.ohjelma&&state.ohjelma.nimi)||'Perusohjelma', paivat:PROGRAM},
+        updated_at:nyt})});
     if(r.ok){ state.sykliPilviAika=nyt; localStorage.setItem(KEY, JSON.stringify(state)); }
   }catch(e){}
 }
@@ -1486,7 +1489,7 @@ function renderSettings(){
       if(!ok) return;
       delete state.ohjelma;
       PROGRAM = DEFAULT_PROGRAM;
-      save(); render();
+      save(); pushSykli(true); render();
     });
   };
 
