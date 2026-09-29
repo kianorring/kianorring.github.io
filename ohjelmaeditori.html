@@ -44,6 +44,10 @@
   .liike .rivi2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .poista{background:none;border:1px solid #e05a6d;color:#e05a6d;border-radius:7px;
     padding:6px 12px;font-size:13px;cursor:pointer;margin-top:8px}
+  .lihaschip{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:3px 11px;
+    margin:3px 4px 3px 0;font-size:13px;background:var(--surface2)}
+  .lihaschip b{color:var(--accent)}
+  .lihaschip.nolla{opacity:.45}
   .lisaa{background:none;border:1px dashed var(--accent);color:var(--accent);border-radius:8px;
     padding:8px 14px;font-size:13px;cursor:pointer;margin-top:6px}
   .toiminnot{position:sticky;bottom:0;background:rgba(16,19,24,.95);backdrop-filter:blur(8px);
@@ -77,6 +81,12 @@
   </fieldset>
 
   <div id="paivat"></div>
+
+  <fieldset id="lihasyhteenveto">
+    <legend>Viikon kuormitus lihasryhmittäin</legend>
+    <div id="lihasyht"></div>
+    <div style="font-size:12px;color:var(--muted);margin-top:6px">Sarjaa viikossa. Päälihas lasketaan täytenä sarjana, avustava puolikkaana. Lihasryhmä ehdotetaan liikkeen nimestä — tarkista ja muuta tarvittaessa.</div>
+  </fieldset>
 
   <div class="toiminnot">
     <select id="pohjasel" style="max-width:320px">
@@ -138,12 +148,55 @@ let ohjelma = null;
 try { ohjelma = JSON.parse(localStorage.getItem(EKEY)); } catch(e){}
 if (!ohjelma) ohjelma = { nimi:'', laatija:'Kia Norring', paivat: tyhja() };
 
+/* Lihasryhmät. Viikkokuormituksessa päälihas = 1 sarja, avustava = ½ sarjaa. */
+const LIHAKSET = [['etureidet','Etureidet'],['takareidet','Takareidet'],['pakarat','Pakarat'],['pohkeet','Pohkeet'],
+  ['rinta','Rinta'],['selka','Selkä'],['olkapaat','Olkapäät'],['hauikset','Hauikset'],['ojentajat','Ojentajat'],
+  ['keskivartalo','Keskivartalo']];
+const LIHASN = Object.fromEntries(LIHAKSET);
+/* Ehdotus liikkeen nimestä: [päälihas, avustava]. Järjestys ratkaisee: tarkat ensin. */
+function arvaaLihas(nimi){
+  const n=String(nimi||'').toLowerCase();
+  if(!n.trim()) return ['',''];
+  if(/lankku|vatsa|roikkumis/.test(n)) return ['keskivartalo',''];
+  if(/pohje/.test(n)) return ['pohkeet',''];
+  if(/ojentaja|ranskalainen|dippi/.test(n)) return ['ojentajat',''];
+  if(/hauis|hammer|curl/.test(n)) return ['hauikset',''];
+  if(/vipunosto|pystypunnerrus|arnold|pystysoutu|punnerrus istuen|olkap/.test(n)) return ['olkapaat', /punnerrus|arnold/.test(n)?'ojentajat':''];
+  if(/penkki|rintapr|punnerrus/.test(n)) return ['rinta','ojentajat'];
+  if(/selän ojennus|selan ojennus/.test(n)) return ['selka','pakarat'];
+  if(/talja|leuanveto|soutu/.test(n)) return ['selka','hauikset'];
+  if(/lantionnosto|hip thrust|loitonnus|pakara/.test(n)) return ['pakarat', /lantionnosto|hip thrust/.test(n)?'takareidet':''];
+  if(/maastaveto|rdl|hyvää huomenta/.test(n)) return ['takareidet','pakarat'];
+  if(/kyykky|prässi|prassi|hack/.test(n)) return ['etureidet','pakarat'];
+  return ['',''];
+}
+function fmtS(n){ return n%1 ? n.toFixed(1).replace('.',',') : String(n); }
+function lihasOptiot(v){
+  return '<option value="">— ei valittu</option>'
+    + LIHAKSET.map(([k,n]) => '<option value="'+k+'"'+(v===k?' selected':'')+'>'+n+'</option>').join('');
+}
+function paivitaLihasYht(){
+  const el = document.getElementById('lihasyht'); if (!el || !ohjelma) return;
+  const k = {};
+  for (const d of DAYS) {
+    const p = ohjelma.paivat[d];
+    if (!p || p.type !== 'gym') continue;
+    for (const e of (p.ex||[])) {
+      if (!e.name || !e.name.trim()) continue;
+      const s = +e.sets || 0;
+      if (e.lihas)  k[e.lihas]  = (k[e.lihas]||0)  + s;
+      if (e.lihas2) k[e.lihas2] = (k[e.lihas2]||0) + s/2;
+    }
+  }
+  el.innerHTML = LIHAKSET.map(([key,n]) =>
+    '<span class="lihaschip'+(k[key]?'':' nolla')+'">'+n+' <b>'+fmtS(k[key]||0)+'</b></span>').join('');
+}
 function tyhja(){
   const p = {};
   DAYS.forEach(d => p[d] = { title:'', sub:'', type:'rest', tip:'', ex:[] });
   return p;
 }
-function talleta(){ localStorage.setItem(EKEY, JSON.stringify(ohjelma)); }
+function talleta(){ localStorage.setItem(EKEY, JSON.stringify(ohjelma)); paivitaLihasYht(); }
 function esc(s){ return String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 /* Oma vahvistusmodaali confirm():n tilalle — selaimen dialogit eivät näy
    iOS:n Koti-valikkoon asennetussa sovelluksessa (standalone-tila). */
@@ -187,10 +240,13 @@ function piirra(){
       + '</div>' + sisus + '</fieldset>';
   }).join('');
   sido();
+  paivitaLihasYht();
 }
 
 function liikeHtml(d,i,e){
   const tyyppi = e.maxSet ? (e.unit==='sek' ? 'sek' : 'max') : 'painot';
+  /* Vanhat ohjelmat ja pohjat ilman lihasryhmää: täytetään ehdotus nimestä */
+  if (e.lihas === undefined) { const a = arvaaLihas(e.name); e.lihas = a[0]; e.lihas2 = a[1]; }
   return '<div class="liike">'
     + '<div class="rivi1">'
     + '<div><label>Liike</label><input list="liikepankki" data-ex="'+d+':'+i+'" data-k="name" value="'+esc(e.name)+'"></div>'
@@ -204,6 +260,10 @@ function liikeHtml(d,i,e){
     + '</select></div></div>'
     + '<div style="margin-top:8px"><label>Tekniikkaohje asiakkaalle</label>'
     + '<input data-ex="'+d+':'+i+'" data-k="tip" value="'+esc(e.tip)+'" placeholder="esim. Hidas alasmeno, selkä suorana"></div>'
+    + '<div class="rivi2" style="margin-top:8px">'
+    + '<div><label>Päälihasryhmä</label><select data-ex="'+d+':'+i+'" data-k="lihas">'+lihasOptiot(e.lihas||'')+'</select></div>'
+    + '<div><label>Avustava lihasryhmä (valinnainen)</label><select data-ex="'+d+':'+i+'" data-k="lihas2">'+lihasOptiot(e.lihas2||'')+'</select></div>'
+    + '</div>'
     + '<div class="rivi2" style="margin-top:8px">'
     + '<div><label>Vaihtoehtoliike 1 (valinnainen)</label><input list="liikepankki" data-ex="'+d+':'+i+'" data-k="alt1" value="'+esc(e.alts&&e.alts[0]?e.alts[0].name:'')+'"></div>'
     + '<div><label>Vaihtoehtoliike 2</label><input list="liikepankki" data-ex="'+d+':'+i+'" data-k="alt2" value="'+esc(e.alts&&e.alts[1]?e.alts[1].name:'')+'"></div>'
@@ -237,6 +297,16 @@ function sido(){
         e.alts = e.alts.filter(Boolean);
       } else if (k === 'sets' || k === 'min' || k === 'max') {
         e[k] = +el.value || 0;
+      } else if (k === 'name') {
+        const vanha = arvaaLihas(e.name);
+        const seurasiEhdotusta = (!e.lihas && !e.lihas2) || ((e.lihas||'') === vanha[0] && (e.lihas2||'') === vanha[1]);
+        e.name = el.value;
+        if (seurasiEhdotusta) {
+          const a = arvaaLihas(e.name); e.lihas = a[0]; e.lihas2 = a[1];
+          const s1 = document.querySelector('select[data-ex="'+el.dataset.ex+'"][data-k="lihas"]');
+          const s2 = document.querySelector('select[data-ex="'+el.dataset.ex+'"][data-k="lihas2"]');
+          if (s1) s1.value = e.lihas; if (s2) s2.value = e.lihas2;
+        }
       } else {
         e[k] = el.value;
       }

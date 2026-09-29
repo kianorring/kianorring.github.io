@@ -94,6 +94,13 @@
   .kevennys{background:#3a2c14;border:1px solid var(--accent);color:var(--accent);border-radius:10px;padding:10px 12px;margin:8px 0;font-size:14px}
   .kevennys.pois{background:var(--surface2);border-color:var(--line);color:var(--muted)}
   .siirto{padding:6px 0;border-top:1px solid var(--line);font-size:13px}
+  .lihasrivi{display:flex;align-items:center;gap:8px;font-size:13px;margin:3px 0}
+  .lihasrivi .ln{width:96px;flex:none}
+  .lihasrivi .lb{flex:1;height:10px;background:var(--surface2);border-radius:5px;position:relative;overflow:hidden}
+  .lihasrivi .ls,.lihasrivi .lt{position:absolute;left:0;top:0;bottom:0;border-radius:5px}
+  .lihasrivi .ls{background:var(--line)}
+  .lihasrivi .lt{background:var(--accent)}
+  .lihasrivi .lv{width:78px;flex:none;text-align:right;color:var(--muted)}
   .liike.puuttuu b{color:var(--muted)}
   .eikirjattu{color:var(--paha)}
   .vajaa{color:var(--varo)}
@@ -429,6 +436,38 @@ function kevennysBanneri(sykli, mon){
   return '';
 }
 
+/* Lihasryhmät. Viikkokuormituksessa päälihas = 1 sarja, avustava = ½ sarjaa. */
+const LIHAKSET = [['etureidet','Etureidet'],['takareidet','Takareidet'],['pakarat','Pakarat'],['pohkeet','Pohkeet'],
+  ['rinta','Rinta'],['selka','Selkä'],['olkapaat','Olkapäät'],['hauikset','Hauikset'],['ojentajat','Ojentajat'],
+  ['keskivartalo','Keskivartalo']];
+const LIHASN = Object.fromEntries(LIHAKSET);
+/* Ehdotus liikkeen nimestä: [päälihas, avustava]. Järjestys ratkaisee: tarkat ensin. */
+function arvaaLihas(nimi){
+  const n=String(nimi||'').toLowerCase();
+  if(!n.trim()) return ['',''];
+  if(/lankku|vatsa|roikkumis/.test(n)) return ['keskivartalo',''];
+  if(/pohje/.test(n)) return ['pohkeet',''];
+  if(/ojentaja|ranskalainen|dippi/.test(n)) return ['ojentajat',''];
+  if(/hauis|hammer|curl/.test(n)) return ['hauikset',''];
+  if(/vipunosto|pystypunnerrus|arnold|pystysoutu|punnerrus istuen|olkap/.test(n)) return ['olkapaat', /punnerrus|arnold/.test(n)?'ojentajat':''];
+  if(/penkki|rintapr|punnerrus/.test(n)) return ['rinta','ojentajat'];
+  if(/selän ojennus|selan ojennus/.test(n)) return ['selka','pakarat'];
+  if(/talja|leuanveto|soutu/.test(n)) return ['selka','hauikset'];
+  if(/lantionnosto|hip thrust|loitonnus|pakara/.test(n)) return ['pakarat', /lantionnosto|hip thrust/.test(n)?'takareidet':''];
+  if(/maastaveto|rdl|hyvää huomenta/.test(n)) return ['takareidet','pakarat'];
+  if(/kyykky|prässi|prassi|hack/.test(n)) return ['etureidet','pakarat'];
+  return ['',''];
+}
+function fmtS(n){ return n%1 ? n.toFixed(1).replace('.',',') : String(n); }
+/* Liikkeen lihasryhmät: ohjelmaan merkityt, muuten ehdotus nimestä */
+function liikkeenLihakset(x, nimi){
+  if(x && x.lihas!==undefined) return [x.lihas||'', x.lihas2||''];
+  return arvaaLihas(nimi || (x&&x.name));
+}
+function lihasTxt(x){
+  const [a,b]=liikkeenLihakset(x, x.name);
+  return a ? ' <span class="muted">· '+LIHASN[a]+(b?' (+'+LIHASN[b]+')':'')+'</span>' : '';
+}
 /* Ohjelma vs. toteutunut -apurit */
 function suunTxt(x){ return x.maxSet ? (x.sets+' × max') : (x.sets+' × '+x.min+'–'+x.max); }
 function sarjaTxt(y){ return (y.w!==''&&y.w!=null?y.w+'kg':'')+'×'+y.r; }
@@ -445,12 +484,18 @@ function edellinenKerta(historia, id, pv){
 }
 function kokoOhjelmaHtml(ohj){
   if(!ohj||!ohj.paivat) return '';
+  const vk={};
+  for(const dk of DAYS){ const p=ohj.paivat[dk]; if(!p||p.type!=='gym') continue;
+    for(const x of (p.ex||[])){ const [a,b]=liikkeenLihakset(x,x.name); const s=x.sets||0;
+      if(a) vk[a]=(vk[a]||0)+s; if(b) vk[b]=(vk[b]||0)+s/2; } }
+  const vkTxt=LIHAKSET.filter(([k])=>vk[k]).map(([k,n])=>n+' '+fmtS(vk[k])).join(' · ');
   return '<details class="ohj"><summary>Näytä asiakkaan koko ohjelma: '+esc(ohj.nimi||'')+'</summary>'
+    +(vkTxt?'<div class="muted" style="font-size:12px;margin:8px 0">Ohjelman sarjat viikossa lihasryhmittäin: '+vkTxt+'</div>':'')
     +DAYS.map(dk=>{
       const p=ohj.paivat[dk]; if(!p) return '';
       return '<div class="paiva"><span class="pv">'+DOWFULL[dk]+' — '+esc(p.title||'')+'</span>'
         +(p.type==='gym'
-          ? (p.ex||[]).map(x=>'<div class="liike"><b>'+esc(x.name)+'</b> '+suunTxt(x)
+          ? (p.ex||[]).map(x=>'<div class="liike"><b>'+esc(x.name)+'</b> '+suunTxt(x)+lihasTxt(x)
               +(x.alts&&x.alts.length?' <span class="muted">· vaihtoehdot: '+x.alts.map(a=>esc(a.name)).join(', ')+'</span>':'')+'</div>').join('')
           : '<div class="liike">'+esc(p.sub||p.type||'')+'</div>')
         +'</div>';
@@ -576,6 +621,37 @@ async function naytaAsiakas(){
       +'</div>';
     if(Object.keys(tyypit).length) html+='<div class="muted" style="font-size:13px;margin-bottom:6px">Kuormitus tällä viikolla: '
       +Object.entries(tyypit).map(([t,n])=>'<b style="color:var(--text)">'+esc(t)+'</b> '+n+' sarjaa').join(' · ')+'</div>';
+    /* Sarjat lihasryhmittäin: tehty (kirjatut) vs. ohjelmassa (suunnitellut) */
+    const lSuun={}, lTehty={};
+    const lisaaL=(o,l,n)=>{ if(l&&n) o[l]=(o[l]||0)+n; };
+    for(let i=0;i<7;i++){
+      const s=perPvm[addDays(viikkoMon,i)];
+      const sp=ohj&&ohj.paivat ? ohj.paivat[(s&&s.tmpl)||DAYS[i]] : null;
+      const exById={};
+      if(sp && sp.type==='gym'){
+        for(const x of (sp.ex||[])){
+          exById[x.id]=x;
+          if(!(s&&s.skipped)){ const [a,b]=liikkeenLihakset(x,x.name); lisaaL(lSuun,a,x.sets||0); lisaaL(lSuun,b,(x.sets||0)/2); }
+        }
+      }
+      if(s) for(const [id,e] of Object.entries(s.entries||{})){
+        const n=kirjatut(e).length; if(!n) continue;
+        const [a,b]=liikkeenLihakset(exById[id], e.name); lisaaL(lTehty,a,n); lisaaL(lTehty,b,n/2);
+      }
+    }
+    const lk=LIHAKSET.filter(([k])=>lSuun[k]||lTehty[k]);
+    if(lk.length){
+      const mx=Math.max(1,...lk.map(([k])=>Math.max(lSuun[k]||0,lTehty[k]||0)));
+      html+='<div style="margin:8px 0 12px"><div class="muted" style="font-size:13px;margin-bottom:4px">Sarjat lihasryhmittäin — tehty'+(ohj?' / ohjelmassa':'')+':</div>'
+        +lk.map(([k,n])=>{
+          const t=lTehty[k]||0, su=lSuun[k]||0;
+          return '<div class="lihasrivi"><span class="ln">'+n+'</span><span class="lb">'
+            +'<span class="ls" style="width:'+Math.round(su/mx*100)+'%"></span>'
+            +'<span class="lt" style="width:'+Math.round(t/mx*100)+'%"></span></span>'
+            +'<span class="lv">'+fmtS(t)+(ohj?' / '+fmtS(su):'')+'</span></div>';
+        }).join('')
+        +'<div class="muted" style="font-size:11px;margin-top:4px">Päälihas = 1 sarja, avustava = ½. Jos liikkeelle ei ole merkitty lihasryhmää editorissa, se arvioidaan liikkeen nimestä.</div></div>';
+    }
 
     const tanaan=iso(new Date());
     for(let i=0;i<7;i++){
