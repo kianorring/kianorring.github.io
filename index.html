@@ -418,7 +418,35 @@ if (!state.defaults) state.defaults = {};
 if (!state.deloadEvery) state.deloadEvery = 4;
 if (!state.prs) state.prs = {};
 if (!state.kevennysSiirrot) state.kevennysSiirrot = [];
-if (state.ohjelma && state.ohjelma.paivat) PROGRAM = state.ohjelma.paivat;
+/* Ohjelma on tyhjä, jos siinä ei ole yhtään treenipäivää (salipäivä jossa liikkeitä,
+   cardio, aktiviteetti tai vapaa treeni). Tyhjää ohjelmaa ei saa päätyä asiakkaalle. */
+function ohjelmaTyhja(paivat){
+  if(!paivat) return true;
+  return !Object.values(paivat).some(p => p && (
+    (p.type==='gym' && (p.ex||[]).some(e => e && e.name && String(e.name).trim())) ||
+    p.type==='cardio' || p.type==='activity' || p.type==='free'));
+}
+/* Jokaisella liikkeellä pitää olla yksilöllinen id — kirjaukset tallentuvat id:n alle. */
+function normalisoiOhjelma(paivat){
+  const kaytetyt={}; let n=0;
+  for(const p of Object.values(paivat||{})){
+    if(!p || p.type!=='gym') continue;
+    p.ex=(p.ex||[]).filter(e=>e && e.name && String(e.name).trim());
+    for(const e of p.ex){
+      if(e.id && !kaytetyt[e.id]){ kaytetyt[e.id]=1; continue; }
+      do{ n++; }while(kaytetyt['y'+n]);
+      e.id='y'+n; kaytetyt[e.id]=1;
+      if(!e.sets) e.sets=3;
+    }
+  }
+  return paivat;
+}
+/* Itsekorjaus: jos käyttöön on päätynyt tyhjä ohjelma, palataan perusohjelmaan. */
+if (state.ohjelma && state.ohjelma.paivat && ohjelmaTyhja(state.ohjelma.paivat)) {
+  delete state.ohjelma; delete state.ohjelmaPilviAika;
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e){}
+}
+if (state.ohjelma && state.ohjelma.paivat) PROGRAM = normalisoiOhjelma(state.ohjelma.paivat);
 
 /* Valmentajan ohjelmalinkki: #ohjelma=<base64url-JSON> */
 function tarkistaOhjelmaLinkki(){
@@ -428,7 +456,7 @@ function tarkistaOhjelmaLinkki(){
     const b64 = m[1].replace(/-/g,'+').replace(/_/g,'/');
     const json = decodeURIComponent(escape(atob(b64)));
     const obj = JSON.parse(json);
-    if(!obj || !obj.paivat || !obj.paivat.ma) throw new Error('rakenne');
+    if(!obj || !obj.paivat || !obj.paivat.ma || ohjelmaTyhja(obj.paivat)) throw new Error('rakenne');
     history.replaceState(null,'',location.pathname+location.search);
     const nimi = obj.nimi || 'uusi ohjelma';
     vahvista('Valmentajalta saapui treeniohjelma: "'+nimi+'".\n\nOtetaanko se käyttöön? Aiemmat kirjauksesi säilyvät.','Ota käyttöön').then(ok=>{
@@ -661,11 +689,12 @@ async function pullOhjelma(){
     if(!r.ok) return;
     const o=await r.json();
     if(!o || !o.data || !o.data.paivat) return;
+    if(ohjelmaTyhja(o.data.paivat)) return;   /* tyhjää ohjelmaa ei oteta käyttöön */
     const aika=(o.paivitetty||'')+'|'+(o.jaettu||'');
     if(state.ohjelmaPilviAika===aika) return;
     state.ohjelma=o.data;
     state.ohjelmaPilviAika=aika;
-    PROGRAM=o.data.paivat;
+    PROGRAM=normalisoiOhjelma(o.data.paivat);
     localStorage.setItem(KEY, JSON.stringify(state));
     toast('Valmentajan ohjelma "'+(o.data.nimi||o.nimi)+'" käytössä ✓');
   }catch(e){}

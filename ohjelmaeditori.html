@@ -300,6 +300,7 @@ function sido(){
       } else if (k === 'name') {
         const vanha = arvaaLihas(e.name);
         const seurasiEhdotusta = (!e.lihas && !e.lihas2) || ((e.lihas||'') === vanha[0] && (e.lihas2||'') === vanha[1]);
+        if (el.value !== e.name) e.id = uusiId();   /* eri liike → uusi id, ei peri vanhan liikkeen historiaa */
         e.name = el.value;
         if (seurasiEhdotusta) {
           const a = arvaaLihas(e.name); e.lihas = a[0]; e.lihas2 = a[1];
@@ -348,18 +349,31 @@ document.getElementById('esitayta').onclick = () => {
   });
 };
 
+/* Liikkeen id pysyy samana tallennuksesta toiseen: asiakkaan kirjaushistoria seuraa id:tä.
+   Uusi id annetaan vain liikkeelle, jolla sitä ei ole (uusi liike tai nimi vaihdettu). */
+function uusiId(){ return 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
+function varmistaIdt(){
+  const kaytetyt = {};
+  for (const d of DAYS) for (const e of (ohjelma.paivat[d].ex||[])) {
+    if (e.id && !kaytetyt[e.id]) kaytetyt[e.id] = 1; else delete e.id;
+  }
+  for (const d of DAYS) for (const e of (ohjelma.paivat[d].ex||[])) {
+    if (e.id) continue;
+    let id; do { id = uusiId(); } while (kaytetyt[id]);
+    e.id = id; kaytetyt[id] = 1;
+  }
+  localStorage.setItem(EKEY, JSON.stringify(ohjelma));
+}
 function viimeistele(){
+  varmistaIdt();
   const out = JSON.parse(JSON.stringify(ohjelma));
   out.pvm = new Date().toLocaleDateString('fi-FI');
-  let jarj = 0;
   for (const d of DAYS) {
     const p = out.paivat[d];
     p.title = p.title || {gym:'Salitreeni',cardio:'Cardio',activity:'Aktiviteetti',free:'Vapaa treeni',rest:'Lepopäivä'}[p.type];
     if (p.type === 'gym') {
       p.ex = (p.ex||[]).filter(e => e.name && e.name.trim());
       p.ex.forEach(e => {
-        jarj++;
-        e.id = 'x' + jarj;
         e.name = e.name.trim();
         const n = e.name.toLowerCase();
         e.inc = /kyykky|maastaveto|prässi|prassi|jalka/.test(n) ? 5 : 2.5;
@@ -484,11 +498,15 @@ async function arkistoLista(){
 document.getElementById('arkistotallenna').onclick=async()=>{
   const nimi=(ohjelma.nimi||'').trim();
   if(!nimi){ ilmoita('Anna ohjelmalle nimi ennen arkistointia.', true); return; }
+  /* Sama tarkistus kuin asennuslinkillä: vähintään yksi salitreeni, salipäivillä liikkeet.
+     Arkistoon menee viimeistelty ohjelma (liikkeillä id:t), ei keskeneräinen muokkaustila. */
+  const valmis=tarkista();
+  if(!valmis) return;
   try{
     const r=await fetch(SB_URL+'/rest/v1/ohjelmat?on_conflict=valmentaja_id,nimi',{
       method:'POST',
       headers:Object.assign(sbHeaders(),{Prefer:'resolution=merge-duplicates,return=minimal'}),
-      body:JSON.stringify({valmentaja_id:sbSession.user.id, nimi:nimi, data:ohjelma})});
+      body:JSON.stringify({valmentaja_id:sbSession.user.id, nimi:nimi, data:valmis})});
     if(!r.ok) throw new Error('HTTP '+r.status);
     ilmoita('Ohjelma "'+nimi+'" tallennettu arkistoon ✓');
     arkistoLista();

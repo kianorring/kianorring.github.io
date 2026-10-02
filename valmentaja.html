@@ -468,6 +468,14 @@ function lihasTxt(x){
   const [a,b]=liikkeenLihakset(x, x.name);
   return a ? ' <span class="muted">· '+LIHASN[a]+(b?' (+'+LIHASN[b]+')':'')+'</span>' : '';
 }
+/* Ohjelma on tyhjä, jos siinä ei ole yhtään treenipäivää (salipäivä jossa liikkeitä,
+   cardio, aktiviteetti tai vapaa treeni). Tyhjää ohjelmaa ei saa päätyä asiakkaalle. */
+function ohjelmaTyhja(paivat){
+  if(!paivat) return true;
+  return !Object.values(paivat).some(p => p && (
+    (p.type==='gym' && (p.ex||[]).some(e => e && e.name && String(e.name).trim())) ||
+    p.type==='cardio' || p.type==='activity' || p.type==='free'));
+}
 /* Ohjelma vs. toteutunut -apurit */
 function suunTxt(x){ return x.maxSet ? (x.sets+' × max') : (x.sets+' × '+x.min+'–'+x.max); }
 function sarjaTxt(y){ return (y.w!==''&&y.w!=null?y.w+'kg':'')+'×'+y.r; }
@@ -512,7 +520,7 @@ function sessioTehty(s){
 async function naytaAsiakas(){
   const a=valittu;
   const loppu=addDays(viikkoMon,6);
-  let rivit=[], kommentit=[], ohjelmalista=[], jako=null, sykli=null, historia=[], ohj=null;
+  let rivit=[], kommentit=[], ohjelmalista=[], jako=null, sykli=null, historia=[], ohj=null, tyhjaMaaritys=false;
   try{
     if(a.id){
       try{ sykli=(await apiGet('treenisykli?select=alku,kevennys_vali,siirrot,updated_at,ohjelma&user_id=eq.'+a.id))[0]||null; }catch(e){}
@@ -525,11 +533,16 @@ async function naytaAsiakas(){
       jako=j[0]||null;
       /* Asiakkaan ohjelma: ensisijaisesti se mikä sovelluksessa on oikeasti käytössä,
          muuten pilvestä määritetty */
-      if(sykli && sykli.ohjelma && sykli.ohjelma.paivat) ohj={nimi:sykli.ohjelma.nimi, paivat:sykli.ohjelma.paivat, lahde:'sovellus'};
-      else if(jako){
+      let maar=null;
+      if(jako){
         try{ const o=(await apiGet('ohjelmat?select=nimi,data&id=eq.'+jako.ohjelma_id))[0];
-          if(o&&o.data&&o.data.paivat) ohj={nimi:o.nimi, paivat:o.data.paivat, lahde:'maaritys'}; }catch(e){}
+          if(o&&o.data&&o.data.paivat){
+            if(ohjelmaTyhja(o.data.paivat)) tyhjaMaaritys=true;
+            else maar={nimi:o.nimi, paivat:o.data.paivat, lahde:'maaritys'};
+          } }catch(e){}
       }
+      if(sykli && sykli.ohjelma && sykli.ohjelma.paivat && !ohjelmaTyhja(sykli.ohjelma.paivat)) ohj={nimi:sykli.ohjelma.nimi, paivat:sykli.ohjelma.paivat, lahde:'sovellus'};
+      else if(maar) ohj=maar;
     }
   }catch(e){ toast('Lataus epäonnistui: '+e.message); }
   const perPvm=Object.fromEntries(rivit.map(r=>[r.pvm,r.data]));
@@ -573,6 +586,9 @@ async function naytaAsiakas(){
           +'</select><button class="primary" id="btnjaa" style="width:auto">Määritä</button></div>'
           +'<div class="muted" style="font-size:12px;margin-top:6px">Asiakkaan sovellus ottaa ohjelman käyttöön seuraavalla avauksella. Kun muokkaat ohjelmaa arkistossa, päivitys valuu asiakkaalle automaattisesti.</div>'
         : '<div class="muted">Pilviarkistossa ei ole vielä ohjelmia — tallenna ensin ohjelma <a href="/ohjelmaeditori.html" style="color:var(--accent)">editorissa</a>.</div>')
+      +(tyhjaMaaritys
+        ? '<div style="color:var(--paha);font-size:13px;margin-top:10px">⚠️ Määritetty ohjelma'+(jaettuNimi?' "'+esc(jaettuNimi)+'"':'')+' on tyhjä — siinä ei ole yhtään treenipäivää. Asiakkaan sovellus ei ota sitä käyttöön. Täydennä ohjelma editorissa ja tallenna arkistoon, tai määritä toinen ohjelma.</div>'
+        : '')
       +(ohj
         ? '<div class="muted" style="font-size:12px;margin-top:10px">'+(ohj.lahde==='sovellus'
             ? 'Asiakkaan sovelluksessa on nyt käytössä: <b style="color:var(--text)">'+esc(ohj.nimi||'')+'</b>'
@@ -739,6 +755,12 @@ async function naytaAsiakas(){
   const bj=document.getElementById('btnjaa');
   if(bj) bj.onclick=async()=>{
     try{
+      /* Tyhjää ohjelmaa (ei treenipäiviä) ei saa määrittää asiakkaalle */
+      const tark=(await apiGet('ohjelmat?select=nimi,data&id=eq.'+(+document.getElementById('ohjsel').value)))[0];
+      if(!tark || !tark.data || ohjelmaTyhja(tark.data.paivat)){
+        await vahvista('Ohjelmassa'+(tark?' "'+tark.nimi+'"':'')+' ei ole yhtään treenipäivää, joten sitä ei voi määrittää asiakkaalle.\n\nAvaa ohjelma editorissa, lisää treenipäivät ja liikkeet, ja tallenna arkistoon.','Selvä');
+        return;
+      }
       await apiPost('ohjelma_jaot?on_conflict=asiakas_id',
         {asiakas_id:a.id, ohjelma_id:+document.getElementById('ohjsel').value, jaettu:new Date().toISOString()},
         {Prefer:'resolution=merge-duplicates,return=minimal'});
